@@ -28,12 +28,14 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
-import { useAuth } from '@/context/AuthContext'
+import { type UserRole, useAuth } from '@/context/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 
 type SidebarProps = {
+  role: UserRole
   mobile?: boolean
   onClose?: () => void
+  onFeatureClick: (feature: string) => void
 }
 
 type Metric = {
@@ -45,34 +47,132 @@ type Metric = {
   iconClass: string
 }
 
-const navigation: Array<{
+type NavigationItem = {
   label: string
   description: string
   icon: LucideIcon
   active?: boolean
-}> = [
-  {
-    label: 'Visão geral',
-    description: 'Resumo financeiro',
-    icon: LayoutDashboard,
-    active: true,
-  },
-  {
-    label: 'Movimentações',
-    description: 'Receitas e despesas',
-    icon: ReceiptText,
-  },
-  {
-    label: 'Contas',
-    description: 'Caixa e bancos',
-    icon: Building2,
-  },
-  {
-    label: 'Relatórios',
-    description: 'Análises e indicadores',
-    icon: BarChart3,
-  },
-]
+  badge?: string
+}
+
+const navigationByRole: Record<UserRole, NavigationItem[]> = {
+  direcao: [
+    {
+      label: 'Visão geral',
+      description: 'Resumo financeiro',
+      icon: LayoutDashboard,
+      active: true,
+    },
+    {
+      label: 'Movimentações',
+      description: 'Consulta dos lançamentos',
+      icon: ReceiptText,
+      badge: 'Somente leitura',
+    },
+    {
+      label: 'Cadastros financeiros',
+      description: 'Consulta de cadastros',
+      icon: ListChecks,
+      badge: 'Somente leitura',
+    },
+    {
+      label: 'Contas',
+      description: 'Consulta de caixa e bancos',
+      icon: Building2,
+      badge: 'Somente leitura',
+    },
+    {
+      label: 'Relatórios',
+      description: 'Análises e indicadores',
+      icon: BarChart3,
+      badge: 'Somente leitura',
+    },
+  ],
+  gestao_financeira: [
+    {
+      label: 'Visão geral',
+      description: 'Resumo financeiro',
+      icon: LayoutDashboard,
+      active: true,
+    },
+    {
+      label: 'Movimentações',
+      description: 'Receitas e despesas',
+      icon: ReceiptText,
+      badge: 'Em breve',
+    },
+    {
+      label: 'Caixa diário',
+      description: 'Abertura e fechamento',
+      icon: WalletCards,
+      badge: 'Em breve',
+    },
+    {
+      label: 'Cadastros financeiros',
+      description: 'Contas e categorias',
+      icon: ListChecks,
+      badge: 'Em breve',
+    },
+    {
+      label: 'Contas',
+      description: 'Caixa e bancos',
+      icon: Building2,
+      badge: 'Em breve',
+    },
+    {
+      label: 'Relatórios',
+      description: 'Análises e indicadores',
+      icon: BarChart3,
+      badge: 'Em breve',
+    },
+  ],
+  recepcao: [
+    {
+      label: 'Visão geral',
+      description: 'Resumo financeiro',
+      icon: LayoutDashboard,
+      active: true,
+    },
+    {
+      label: 'Caixa diário',
+      description: 'Operação do caixa',
+      icon: WalletCards,
+      badge: 'Em breve',
+    },
+    {
+      label: 'Movimentações',
+      description: 'Registro de receitas',
+      icon: ReceiptText,
+      badge: 'Em breve',
+    },
+  ],
+}
+
+const roleLabels: Record<UserRole, string> = {
+  direcao: 'Direção',
+  gestao_financeira: 'Gestão Financeira',
+  recepcao: 'Recepção',
+}
+
+const roleDescriptions: Record<UserRole, string> = {
+  direcao: 'Acesso de leitura aos indicadores e registros financeiros.',
+  gestao_financeira: 'Criação, edição e revisão da operação financeira.',
+  recepcao: 'Operação do caixa diário e registro de receitas.',
+}
+
+const rolePermissions: Record<UserRole, string[]> = {
+  direcao: [
+    'Visualizar indicadores',
+    'Consultar movimentações',
+    'Consultar cadastros e relatórios',
+  ],
+  gestao_financeira: [
+    'Visualizar indicadores',
+    'Criar e editar cadastros',
+    'Revisar movimentações e caixa',
+  ],
+  recepcao: ['Visualizar o painel', 'Operar o caixa diário', 'Registrar receitas'],
+}
 
 const setupSteps = [
   {
@@ -95,7 +195,7 @@ const setupSteps = [
   },
 ]
 
-function Sidebar({ mobile = false, onClose }: SidebarProps) {
+function Sidebar({ role, mobile = false, onClose, onFeatureClick }: SidebarProps) {
   return (
     <aside
       className={`${
@@ -135,23 +235,23 @@ function Sidebar({ mobile = false, onClose }: SidebarProps) {
           Navegação
         </div>
         <nav className="space-y-1" aria-label="Navegação principal">
-          {navigation.map((item) => {
+          {navigationByRole[role].map((item) => {
             const Icon = item.icon
             return (
               <button
                 key={item.label}
                 type="button"
-                disabled={!item.active}
-                onClick={item.active ? onClose : undefined}
+                aria-current={item.active ? 'page' : undefined}
+                onClick={item.active ? onClose : () => onFeatureClick(item.label)}
                 className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all ${
                   item.active
                     ? 'bg-[#E10613]/10 text-white shadow-[inset_3px_0_0_#E10613]'
-                    : 'cursor-not-allowed text-white/35 hover:bg-white/[0.03]'
+                    : 'text-white/50 hover:bg-white/[0.04] hover:text-white'
                 }`}
               >
                 <Icon
                   className={`h-[18px] w-[18px] shrink-0 ${
-                    item.active ? 'text-[#E10613]' : 'text-white/30'
+                    item.active ? 'text-[#E10613]' : 'text-white/35'
                   }`}
                 />
                 <span className="min-w-0 flex-1">
@@ -160,9 +260,15 @@ function Sidebar({ mobile = false, onClose }: SidebarProps) {
                     {item.description}
                   </span>
                 </span>
-                {!item.active && (
-                  <span className="rounded-full border border-white/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white/30">
-                    Em breve
+                {!item.active && item.badge && (
+                  <span
+                    className={`rounded-full border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider ${
+                      item.badge === 'Somente leitura'
+                        ? 'border-sky-300/20 text-sky-200/55'
+                        : 'border-white/10 text-white/30'
+                    }`}
+                  >
+                    {item.badge}
                   </span>
                 )}
               </button>
@@ -170,23 +276,29 @@ function Sidebar({ mobile = false, onClose }: SidebarProps) {
           })}
         </nav>
 
-        <div className="mb-3 mt-9 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#63636D]">
-          Sistema
-        </div>
-        <button
-          type="button"
-          disabled
-          className="group flex w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-3 text-left text-white/35 transition-colors hover:bg-white/[0.03]"
-        >
-          <Settings2 className="h-[18px] w-[18px] text-white/30" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold">Configurações</span>
-            <span className="mt-0.5 block text-[11px] text-white/35">Preferências do sistema</span>
-          </span>
-          <span className="rounded-full border border-white/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white/30">
-            Em breve
-          </span>
-        </button>
+        {role === 'gestao_financeira' && (
+          <>
+            <div className="mb-3 mt-9 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#63636D]">
+              Sistema
+            </div>
+            <button
+              type="button"
+              onClick={() => onFeatureClick('Configurações')}
+              className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-white/50 transition-colors hover:bg-white/[0.04] hover:text-white"
+            >
+              <Settings2 className="h-[18px] w-[18px] text-white/35" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">Configurações</span>
+                <span className="mt-0.5 block text-[11px] text-white/35">
+                  Preferências do sistema
+                </span>
+              </span>
+              <span className="rounded-full border border-white/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white/30">
+                Em breve
+              </span>
+            </button>
+          </>
+        )}
       </div>
 
       <div className="border-t border-white/[0.08] p-5">
@@ -358,12 +470,17 @@ export default function Dashboard() {
             onClick={() => setIsSidebarOpen(false)}
             className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden"
           />
-          <Sidebar mobile onClose={() => setIsSidebarOpen(false)} />
+          <Sidebar
+            role={user.role}
+            mobile
+            onClose={() => setIsSidebarOpen(false)}
+            onFeatureClick={showComingSoon}
+          />
         </>
       )}
 
       <div className="flex min-h-screen">
-        <Sidebar />
+        <Sidebar role={user.role} onFeatureClick={showComingSoon} />
 
         <div className="min-w-0 flex-1">
           <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#08080B]/90 backdrop-blur-xl">
@@ -407,7 +524,9 @@ export default function Dashboard() {
                   </div>
                   <div className="hidden min-w-0 sm:block">
                     <p className="truncate text-sm font-bold text-white">{firstName}</p>
-                    <p className="max-w-[160px] truncate text-[11px] text-white/35">{user.email}</p>
+                    <p className="truncate text-[11px] font-semibold text-[#FCA5A5]">
+                      {roleLabels[user.role]}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -473,6 +592,41 @@ export default function Dashboard() {
                   Ver próximo passo
                   <ChevronRight className="h-4 w-4" />
                 </button>
+              </div>
+            </section>
+
+            <section
+              className="mt-6 rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 sm:p-6"
+              aria-label="Perfil e permissões"
+            >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#E10613]/30 bg-[#E10613]/10 text-[#E10613]">
+                    <UserRound className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base font-bold text-white">Perfil de acesso</h2>
+                      <span className="rounded-full border border-[#E10613]/30 bg-[#E10613]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#FCA5A5]">
+                        {roleLabels[user.role]}
+                      </span>
+                    </div>
+                    <p className="mt-2 max-w-xl text-xs leading-relaxed text-white/40 sm:text-sm">
+                      {roleDescriptions[user.role]}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[560px]">
+                  {rolePermissions[user.role].map((permission) => (
+                    <div
+                      key={permission}
+                      className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-[#08080B]/50 px-3 py-2.5 text-xs text-white/55"
+                    >
+                      <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                      <span>{permission}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
 

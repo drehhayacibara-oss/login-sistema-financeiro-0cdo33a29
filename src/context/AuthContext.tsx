@@ -3,10 +3,13 @@ import type { RecordModel } from 'pocketbase'
 import pb from '@/lib/pocketbase/client'
 import { ClientResponseError } from 'pocketbase'
 
+export type UserRole = 'direcao' | 'gestao_financeira' | 'recepcao'
+
 export interface UserProfile {
   id: string
   email: string
   name: string
+  role: UserRole
   avatar?: string
   created?: string
   updated?: string
@@ -29,12 +32,20 @@ const REMEMBER_KEY = 'rubra_remember_me'
 
 function recordToProfile(record: RecordModel | null): UserProfile | null {
   if (!record) return null
+
+  const rawRole = (record as Record<string, unknown>).role
+  const role: UserRole =
+    rawRole === 'gestao_financeira' || rawRole === 'recepcao' || rawRole === 'direcao'
+      ? rawRole
+      : 'direcao'
+
   return {
     id: record.id,
     email: record.email || ((record as Record<string, unknown>).email as string) || '',
     name:
       ((record as Record<string, unknown>).name as string) ||
       (record.email?.split('@')[0] ?? 'Usuário'),
+    role,
     avatar: (record as Record<string, unknown>).avatar as string | undefined,
     created: record.created,
     updated: record.updated,
