@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -252,6 +252,17 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast({
+        title: 'Sessão expirada.',
+        description: 'Faça login novamente.',
+        className: 'border-l-4 border-l-[#E10613] bg-[#121216] text-white',
+      })
+      navigate('/', { replace: true })
+    }
+  }, [isLoading, isAuthenticated, navigate, toast])
 
   const today = useMemo(() => {
     const formatted = new Intl.DateTimeFormat('pt-BR', {
