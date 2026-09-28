@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -6,45 +6,49 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
-  Bell,
   Building2,
   CalendarDays,
-  Check,
-  ChevronRight,
-  CircleDollarSign,
   CreditCard,
+  Filter,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
+  PieChart,
   Plus,
   ReceiptText,
   RefreshCw,
   Settings2,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
-  UserRound,
   WalletCards,
   X,
 } from 'lucide-react'
 import { type UserRole, useAuth } from '@/context/AuthContext'
 import { useToast } from '@/hooks/use-toast'
+import {
+  type CreateTransactionDTO,
+  type Transaction,
+  calculateExpenseCategories,
+  calculateMonthlyTrend,
+  calculateSummary,
+  createTransaction,
+  deleteTransaction,
+  fetchTransactions,
+  formatBRL,
+} from '@/services/transactions'
+import { NewTransactionModal } from '@/components/NewTransactionModal'
+import { FinancialTrendChart } from '@/components/FinancialTrendChart'
+import { ExpenseCategoriesCard } from '@/components/ExpenseCategoriesCard'
+import { TransactionList } from '@/components/TransactionList'
+import pb from '@/lib/pocketbase/client'
 
 type SidebarProps = {
   role: UserRole
   mobile?: boolean
   onClose?: () => void
   onFeatureClick: (feature: string) => void
-}
-
-type Metric = {
-  label: string
-  value: string
-  detail: string
-  icon: LucideIcon
-  accent: string
-  iconClass: string
+  onNewTransaction: () => void
 }
 
 type NavigationItem = {
@@ -59,47 +63,43 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
   direcao: [
     {
       label: 'Visão geral',
-      description: 'Resumo financeiro',
+      description: 'Painel financeiro',
       icon: LayoutDashboard,
       active: true,
     },
     {
       label: 'Movimentações',
-      description: 'Consulta dos lançamentos',
+      description: 'Extrato de lançamentos',
       icon: ReceiptText,
-      badge: 'Somente leitura',
-    },
-    {
-      label: 'Cadastros financeiros',
-      description: 'Consulta de cadastros',
-      icon: ListChecks,
-      badge: 'Somente leitura',
-    },
-    {
-      label: 'Contas',
-      description: 'Consulta de caixa e bancos',
-      icon: Building2,
-      badge: 'Somente leitura',
     },
     {
       label: 'Relatórios',
-      description: 'Análises e indicadores',
+      description: 'Evolução e categorias',
       icon: BarChart3,
-      badge: 'Somente leitura',
+    },
+    {
+      label: 'Contas & Bancos',
+      description: 'Gestão de caixas',
+      icon: Building2,
+      badge: 'Em breve',
     },
   ],
   gestao_financeira: [
     {
       label: 'Visão geral',
-      description: 'Resumo financeiro',
+      description: 'Painel financeiro',
       icon: LayoutDashboard,
       active: true,
     },
     {
       label: 'Movimentações',
-      description: 'Receitas e despesas',
+      description: 'Extrato de lançamentos',
       icon: ReceiptText,
-      badge: 'Em breve',
+    },
+    {
+      label: 'Relatórios',
+      description: 'Análises e gráficos',
+      icon: BarChart3,
     },
     {
       label: 'Caixa diário',
@@ -107,95 +107,41 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       icon: WalletCards,
       badge: 'Em breve',
     },
-    {
-      label: 'Cadastros financeiros',
-      description: 'Contas e categorias',
-      icon: ListChecks,
-      badge: 'Em breve',
-    },
-    {
-      label: 'Contas',
-      description: 'Caixa e bancos',
-      icon: Building2,
-      badge: 'Em breve',
-    },
-    {
-      label: 'Relatórios',
-      description: 'Análises e indicadores',
-      icon: BarChart3,
-      badge: 'Em breve',
-    },
   ],
   recepcao: [
     {
       label: 'Visão geral',
-      description: 'Resumo financeiro',
+      description: 'Painel financeiro',
       icon: LayoutDashboard,
       active: true,
-    },
-    {
-      label: 'Caixa diário',
-      description: 'Operação do caixa',
-      icon: WalletCards,
-      badge: 'Em breve',
     },
     {
       label: 'Movimentações',
       description: 'Registro de receitas',
       icon: ReceiptText,
+    },
+    {
+      label: 'Caixa diário',
+      description: 'Operação de balcão',
+      icon: WalletCards,
       badge: 'Em breve',
     },
   ],
 }
 
 const roleLabels: Record<UserRole, string> = {
-  direcao: 'Direção',
+  direcao: 'Direção Executiva',
   gestao_financeira: 'Gestão Financeira',
-  recepcao: 'Recepção',
+  recepcao: 'Recepção / Caixa',
 }
 
-const roleDescriptions: Record<UserRole, string> = {
-  direcao: 'Acesso de leitura aos indicadores e registros financeiros.',
-  gestao_financeira: 'Criação, edição e revisão da operação financeira.',
-  recepcao: 'Operação do caixa diário e registro de receitas.',
-}
-
-const rolePermissions: Record<UserRole, string[]> = {
-  direcao: [
-    'Visualizar indicadores',
-    'Consultar movimentações',
-    'Consultar cadastros e relatórios',
-  ],
-  gestao_financeira: [
-    'Visualizar indicadores',
-    'Criar e editar cadastros',
-    'Revisar movimentações e caixa',
-  ],
-  recepcao: ['Visualizar o painel', 'Operar o caixa diário', 'Registrar receitas'],
-}
-
-const setupSteps = [
-  {
-    number: '01',
-    title: 'Cadastre suas contas',
-    description: 'Organize bancos, caixa e outras contas financeiras.',
-    icon: Building2,
-  },
-  {
-    number: '02',
-    title: 'Defina as categorias',
-    description: 'Separe receitas e despesas para enxergar o resultado.',
-    icon: ListChecks,
-  },
-  {
-    number: '03',
-    title: 'Registre o primeiro lançamento',
-    description: 'Comece a construir sua visão financeira real.',
-    icon: CircleDollarSign,
-  },
-]
-
-function Sidebar({ role, mobile = false, onClose, onFeatureClick }: SidebarProps) {
+function Sidebar({
+  role,
+  mobile = false,
+  onClose,
+  onFeatureClick,
+  onNewTransaction,
+}: SidebarProps) {
   return (
     <aside
       className={`${
@@ -230,9 +176,23 @@ function Sidebar({ role, mobile = false, onClose, onFeatureClick }: SidebarProps
         )}
       </div>
 
-      <div className="flex-1 px-4 py-6">
+      <div className="p-4">
+        <button
+          type="button"
+          onClick={() => {
+            if (mobile && onClose) onClose()
+            onNewTransaction()
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#E10613] py-3 text-sm font-bold text-white shadow-[0_0_20px_rgba(225,6,19,0.3)] transition-all hover:bg-[#C00510] focus:ring-4 focus:ring-[#E10613]/30"
+        >
+          <Plus className="h-4 w-4" />
+          Nova Transação
+        </button>
+      </div>
+
+      <div className="flex-1 px-4 py-2">
         <div className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#63636D]">
-          Navegação
+          Menu
         </div>
         <nav className="space-y-1" aria-label="Navegação principal">
           {navigationByRole[role].map((item) => {
@@ -261,13 +221,7 @@ function Sidebar({ role, mobile = false, onClose, onFeatureClick }: SidebarProps
                   </span>
                 </span>
                 {!item.active && item.badge && (
-                  <span
-                    className={`rounded-full border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider ${
-                      item.badge === 'Somente leitura'
-                        ? 'border-sky-300/20 text-sky-200/55'
-                        : 'border-white/10 text-white/30'
-                    }`}
-                  >
+                  <span className="rounded-full border border-white/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white/30">
                     {item.badge}
                   </span>
                 )}
@@ -278,7 +232,7 @@ function Sidebar({ role, mobile = false, onClose, onFeatureClick }: SidebarProps
 
         {role === 'gestao_financeira' && (
           <>
-            <div className="mb-3 mt-9 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#63636D]">
+            <div className="mb-3 mt-8 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#63636D]">
               Sistema
             </div>
             <button
@@ -289,9 +243,7 @@ function Sidebar({ role, mobile = false, onClose, onFeatureClick }: SidebarProps
               <Settings2 className="h-[18px] w-[18px] text-white/35" />
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold">Configurações</span>
-                <span className="mt-0.5 block text-[11px] text-white/35">
-                  Preferências do sistema
-                </span>
+                <span className="mt-0.5 block text-[11px] text-white/35">Parâmetros e contas</span>
               </span>
               <span className="rounded-full border border-white/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white/30">
                 Em breve
@@ -305,9 +257,9 @@ function Sidebar({ role, mobile = false, onClose, onFeatureClick }: SidebarProps
         <div className="flex items-start gap-3 rounded-xl border border-[#E10613]/20 bg-[#E10613]/[0.06] p-3">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#E10613]" />
           <div>
-            <p className="text-xs font-semibold text-white/80">Ambiente protegido</p>
+            <p className="text-xs font-semibold text-white/80">Ambiente seguro</p>
             <p className="mt-1 text-[11px] leading-relaxed text-white/40">
-              Sua sessão está protegida pelo acesso seguro do RUBRA.
+              Conexão criptografada e autenticada no RUBRA.
             </p>
           </div>
         </div>
@@ -316,55 +268,18 @@ function Sidebar({ role, mobile = false, onClose, onFeatureClick }: SidebarProps
   )
 }
 
-function MetricCard({ metric }: { metric: Metric }) {
-  const Icon = metric.icon
-  return (
-    <article className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 transition-all hover:-translate-y-0.5 hover:border-white/[0.14] hover:shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
-      <div className={`absolute right-0 top-0 h-24 w-24 rounded-full ${metric.accent} blur-3xl`} />
-      <div className="relative flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#63636D]">
-            {metric.label}
-          </p>
-          <p className="mt-3 text-2xl font-extrabold tracking-tight text-white">{metric.value}</p>
-          <p className="mt-2 text-xs text-white/40">{metric.detail}</p>
-        </div>
-        <div className={`rounded-xl border border-white/10 p-2.5 ${metric.iconClass}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function EmptyChart() {
-  return (
-    <div className="relative mt-6 h-[188px] overflow-hidden rounded-xl border border-dashed border-white/10 bg-[#08080B]/60">
-      <div className="absolute inset-0 flex flex-col justify-between p-5 opacity-60">
-        <div className="border-t border-dashed border-white/[0.08]" />
-        <div className="border-t border-dashed border-white/[0.08]" />
-        <div className="border-t border-dashed border-white/[0.08]" />
-        <div className="border-t border-dashed border-white/[0.08]" />
-      </div>
-      <div className="relative flex h-full flex-col items-center justify-center px-6 text-center">
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
-          <Activity className="h-5 w-5 text-white/25" />
-        </div>
-        <p className="text-sm font-semibold text-white/70">Aguardando os primeiros lançamentos</p>
-        <p className="mt-1 max-w-xs text-xs leading-relaxed text-white/35">
-          O gráfico de evolução do caixa aparecerá aqui quando houver dados financeiros registrados.
-        </p>
-      </div>
-    </div>
-  )
-}
-
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading, logout } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isNewTxModalOpen, setIsNewTxModalOpen] = useState(false)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loadingData, setLoadingData] = useState(true)
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all')
+
+  // Auth Protection
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       toast({
@@ -376,6 +291,102 @@ export default function Dashboard() {
     }
   }, [isLoading, isAuthenticated, navigate, toast])
 
+  // Fetch transactions
+  const loadTransactions = useCallback(async () => {
+    try {
+      setLoadingData(true)
+      const data = await fetchTransactions()
+      setTransactions(data)
+    } catch (err) {
+      console.error('Erro ao carregar transações:', err)
+      toast({
+        title: 'Erro ao carregar dados',
+        description: 'Não foi possível carregar as transações financeiras.',
+        className: 'border-l-4 border-l-[#E10613] bg-[#121216] text-white',
+      })
+    } finally {
+      setLoadingData(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadTransactions()
+    }
+  }, [isAuthenticated, loadTransactions])
+
+  // Realtime subscription for transactions
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    let isSubscribed = true
+
+    pb.collection('transactions')
+      .subscribe('*', (e) => {
+        if (!isSubscribed) return
+        if (e.action === 'create') {
+          // Refresh list or append
+          loadTransactions()
+        } else if (e.action === 'delete') {
+          setTransactions((prev) => prev.filter((t) => t.id !== e.record.id))
+        } else if (e.action === 'update') {
+          loadTransactions()
+        }
+      })
+      .catch((err) => {
+        console.warn('Realtime subscription error on transactions:', err)
+      })
+
+    return () => {
+      isSubscribed = false
+      pb.collection('transactions')
+        .unsubscribe('*')
+        .catch(() => {})
+    }
+  }, [isAuthenticated, loadTransactions])
+
+  // Handle new transaction submission
+  const handleCreateTransaction = async (dto: CreateTransactionDTO) => {
+    const newTx = await createTransaction(dto)
+    setTransactions((prev) => [newTx, ...prev])
+    toast({
+      title: 'Transação adicionada com sucesso!',
+      description: `${dto.type === 'income' ? 'Receita' : 'Despesa'} de ${formatBRL(dto.amount)} cadastrada.`,
+      className: 'border-l-4 border-l-emerald-500 bg-[#121216] text-white',
+    })
+  }
+
+  // Handle delete transaction
+  const handleDeleteTransaction = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este lançamento financeiro?')) return
+    try {
+      await deleteTransaction(id)
+      setTransactions((prev) => prev.filter((t) => t.id !== id))
+      toast({
+        title: 'Lançamento excluído',
+        description: 'A transação foi removida com sucesso.',
+        className: 'border-l-4 border-l-[#E10613] bg-[#121216] text-white',
+      })
+    } catch (err) {
+      console.error(err)
+      toast({
+        title: 'Erro ao excluir',
+        description: 'Não foi possível remover a transação.',
+        className: 'border-l-4 border-l-[#E10613] bg-[#121216] text-white',
+      })
+    }
+  }
+
+  // Current Month calculation
+  const currentMonthKey = useMemo(() => new Date().toISOString().slice(0, 7), [])
+
+  const currentMonthName = useMemo(() => {
+    const formatted = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
+      new Date(),
+    )
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1)
+  }, [])
+
   const today = useMemo(() => {
     const formatted = new Intl.DateTimeFormat('pt-BR', {
       weekday: 'long',
@@ -386,60 +397,24 @@ export default function Dashboard() {
     return formatted.charAt(0).toUpperCase() + formatted.slice(1)
   }, [])
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#08080B] text-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E10613]/10 text-[#E10613]">
-            <RefreshCw className="h-6 w-6 animate-spin" />
-          </div>
-          <span className="text-sm text-white/45">Carregando seu painel...</span>
-        </div>
-      </div>
-    )
-  }
+  // Summaries and charts data
+  const summary = useMemo(() => {
+    return calculateSummary(transactions, currentMonthKey)
+  }, [transactions, currentMonthKey])
 
-  if (!isAuthenticated || !user) {
-    return null
-  }
+  const chartTrend = useMemo(() => {
+    return calculateMonthlyTrend(transactions, 6)
+  }, [transactions])
 
-  const firstName = user.name ? user.name.split(' ')[0] : 'Usuário'
-  const initial = firstName.charAt(0).toUpperCase()
+  const expenseCategories = useMemo(() => {
+    return calculateExpenseCategories(transactions, currentMonthKey)
+  }, [transactions, currentMonthKey])
 
-  const metrics: Metric[] = [
-    {
-      label: 'Saldo disponível',
-      value: 'Sem dados',
-      detail: 'Cadastre uma conta financeira',
-      icon: WalletCards,
-      accent: 'bg-[#E10613]/15',
-      iconClass: 'bg-[#E10613]/10 text-[#E10613]',
-    },
-    {
-      label: 'Receitas no período',
-      value: 'Sem dados',
-      detail: 'Nenhum lançamento registrado',
-      icon: ArrowUpRight,
-      accent: 'bg-emerald-500/10',
-      iconClass: 'bg-emerald-500/10 text-emerald-400',
-    },
-    {
-      label: 'Despesas no período',
-      value: 'Sem dados',
-      detail: 'Nenhum lançamento registrado',
-      icon: ArrowDownRight,
-      accent: 'bg-amber-500/10',
-      iconClass: 'bg-amber-500/10 text-amber-300',
-    },
-    {
-      label: 'Resultado líquido',
-      value: 'Sem dados',
-      detail: 'Disponível após os primeiros registros',
-      icon: TrendingUp,
-      accent: 'bg-sky-500/10',
-      iconClass: 'bg-sky-500/10 text-sky-300',
-    },
-  ]
+  // Filtered transactions for recent activity table
+  const displayedTransactions = useMemo(() => {
+    if (filterType === 'all') return transactions
+    return transactions.filter((t) => t.type === filterType)
+  }, [transactions, filterType])
 
   const handleLogout = () => {
     logout()
@@ -454,14 +429,34 @@ export default function Dashboard() {
   const showComingSoon = (feature: string) => {
     toast({
       title: `${feature} em preparação.`,
-      description:
-        'A estrutura visual está pronta. A conexão com os dados será feita na próxima etapa.',
+      description: 'Este módulo estará disponível na próxima atualização do Rubra.',
       className: 'border-l-4 border-l-[#E10613] bg-[#121216] text-white',
     })
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#08080B] text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E10613]/10 text-[#E10613]">
+            <RefreshCw className="h-6 w-6 animate-spin" />
+          </div>
+          <span className="text-sm text-white/45">Carregando painel financeiro...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated || !user) {
+    return null
+  }
+
+  const firstName = user.name ? user.name.split(' ')[0] : 'Usuário'
+  const initial = firstName.charAt(0).toUpperCase()
+
   return (
     <div className="min-h-screen w-full bg-[#08080B] text-white">
+      {/* Mobile Drawer */}
       {isSidebarOpen && (
         <>
           <button
@@ -475,14 +470,27 @@ export default function Dashboard() {
             mobile
             onClose={() => setIsSidebarOpen(false)}
             onFeatureClick={showComingSoon}
+            onNewTransaction={() => setIsNewTxModalOpen(true)}
           />
         </>
       )}
 
+      {/* Modal Nova Transação */}
+      <NewTransactionModal
+        open={isNewTxModalOpen}
+        onOpenChange={setIsNewTxModalOpen}
+        onSubmit={handleCreateTransaction}
+      />
+
       <div className="flex min-h-screen">
-        <Sidebar role={user.role} onFeatureClick={showComingSoon} />
+        <Sidebar
+          role={user.role}
+          onFeatureClick={showComingSoon}
+          onNewTransaction={() => setIsNewTxModalOpen(true)}
+        />
 
         <div className="min-w-0 flex-1">
+          {/* Header */}
           <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#08080B]/90 backdrop-blur-xl">
             <div className="flex h-[76px] items-center justify-between gap-4 px-5 sm:px-8 xl:px-10">
               <div className="flex items-center gap-3">
@@ -496,153 +504,180 @@ export default function Dashboard() {
                 </button>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#E10613]">
-                    Painel financeiro
+                    Painel Financeiro
                   </p>
-                  <p className="mt-1 hidden text-xs text-white/35 sm:block">
-                    Visão geral da operação
+                  <p className="mt-0.5 hidden text-xs text-white/40 sm:block">
+                    Visão geral e controle de caixa
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 sm:gap-5">
-                <div className="hidden items-center gap-2 text-xs text-white/35 md:flex">
-                  <span className="h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.55)]" />
-                  <span>Base financeira em configuração</span>
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="hidden items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-400 md:flex">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Ambiente conectado ao vivo</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => showComingSoon('Notificações')}
-                  aria-label="Notificações"
-                  className="relative rounded-xl border border-white/10 bg-white/[0.03] p-2.5 text-white/55 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#E10613]"
-                >
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#E10613]" />
-                </button>
-                <div className="flex items-center gap-3 border-l border-white/10 pl-3 sm:pl-5">
+
+                <div className="flex items-center gap-3 border-l border-white/10 pl-3 sm:pl-4">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-[#E10613] text-sm font-extrabold text-white shadow-[0_0_14px_rgba(225,6,19,0.25)]">
                     {initial}
                   </div>
                   <div className="hidden min-w-0 sm:block">
                     <p className="truncate text-sm font-bold text-white">{firstName}</p>
-                    <p className="truncate text-[11px] font-semibold text-[#FCA5A5]">
-                      {roleLabels[user.role]}
-                    </p>
+                    <p className="truncate text-[11px] font-semibold text-white/40">{user.email}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    title="Sair do sistema"
+                    className="ml-1 rounded-lg border border-white/10 bg-white/[0.03] p-2 text-white/50 transition-colors hover:border-[#E10613]/40 hover:bg-[#E10613]/10 hover:text-[#E10613]"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
           </header>
 
+          {/* Main Content */}
           <main className="mx-auto max-w-[1560px] px-5 py-7 sm:px-8 sm:py-9 xl:px-10">
+            {/* Boas-vindas e ações */}
             <section className="animate-rise-in flex flex-col justify-between gap-5 md:flex-row md:items-end">
               <div>
-                <p className="flex items-center gap-2 text-sm text-white/40">
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/40">
                   <CalendarDays className="h-4 w-4 text-[#E10613]" />
                   {today}
                 </p>
-                <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-                  Olá, {firstName}.
+                <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                  Bem-vindo ao Rubra, {firstName}.
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45 sm:text-base">
-                  Este é o ponto de partida para acompanhar as decisões financeiras da sua operação
-                  com clareza.
+                <p className="mt-1 text-sm text-white/50">
+                  Acompanhe seu saldo total, entradas e saídas de dinheiro do mês em tempo real.
                 </p>
               </div>
+
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => showComingSoon('Atualização de dados')}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-semibold text-white/75 transition-all hover:border-white/20 hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#E10613]"
+                  onClick={loadTransactions}
+                  disabled={loadingData}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-xs font-semibold text-white/75 transition-all hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
                 >
-                  <RefreshCw className="h-4 w-4" />
-                  Atualizar
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${loadingData ? 'animate-spin text-[#E10613]' : ''}`}
+                  />
+                  Recarregar
                 </button>
                 <button
                   type="button"
-                  onClick={() => showComingSoon('Novo lançamento')}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#E10613] px-4 text-sm font-bold text-white shadow-[0_0_24px_rgba(225,6,19,0.24)] transition-all hover:bg-[#C00510] hover:shadow-[0_0_30px_rgba(225,6,19,0.38)] focus:outline-none focus:ring-4 focus:ring-[#E10613]/30"
+                  onClick={() => setIsNewTxModalOpen(true)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#E10613] px-5 text-sm font-bold text-white shadow-[0_0_24px_rgba(225,6,19,0.3)] transition-all hover:bg-[#C00510] hover:shadow-[0_0_32px_rgba(225,6,19,0.45)] focus:ring-4 focus:ring-[#E10613]/30"
                 >
                   <Plus className="h-4 w-4" />
-                  Novo lançamento
+                  Nova Transação
                 </button>
               </div>
             </section>
 
-            <section className="mt-8 animate-rise-in" style={{ animationDelay: '80ms' }}>
-              <div className="flex flex-col gap-4 rounded-2xl border border-[#E10613]/25 bg-gradient-to-r from-[#E10613]/[0.10] via-[#E10613]/[0.04] to-transparent p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#E10613]/30 bg-[#E10613]/10 text-[#E10613]">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">
-                      Seu painel está pronto para receber os dados reais.
-                    </p>
-                    <p className="mt-1 max-w-2xl text-xs leading-relaxed text-white/45 sm:text-sm">
-                      Para ativar os indicadores, o próximo passo é configurar as contas
-                      financeiras, categorias e lançamentos da operação.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => showComingSoon('Configuração financeira')}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-[#E10613]/40 px-3.5 py-2.5 text-xs font-bold text-[#FCA5A5] transition-colors hover:bg-[#E10613]/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#E10613] sm:self-center"
-                >
-                  Ver próximo passo
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </section>
-
+            {/* Resumo de Indicadores (Saldo, Receitas, Despesas, Resultado) */}
             <section
-              className="mt-6 rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 sm:p-6"
-              aria-label="Perfil e permissões"
-            >
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#E10613]/30 bg-[#E10613]/10 text-[#E10613]">
-                    <UserRound className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-base font-bold text-white">Perfil de acesso</h2>
-                      <span className="rounded-full border border-[#E10613]/30 bg-[#E10613]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#FCA5A5]">
-                        {roleLabels[user.role]}
-                      </span>
-                    </div>
-                    <p className="mt-2 max-w-xl text-xs leading-relaxed text-white/40 sm:text-sm">
-                      {roleDescriptions[user.role]}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[560px]">
-                  {rolePermissions[user.role].map((permission) => (
-                    <div
-                      key={permission}
-                      className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-[#08080B]/50 px-3 py-2.5 text-xs text-white/55"
-                    >
-                      <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                      <span>{permission}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section
-              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+              className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
               aria-label="Indicadores financeiros"
             >
-              {metrics.map((metric) => (
-                <MetricCard key={metric.label} metric={metric} />
-              ))}
+              {/* Saldo Total */}
+              <article className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 transition-all hover:-translate-y-0.5 hover:border-white/[0.14] hover:shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
+                <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-[#E10613]/15 blur-3xl" />
+                <div className="relative flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#63636D]">
+                      Saldo Total Acumulado
+                    </p>
+                    <p
+                      className={`mt-3 text-2xl font-extrabold tracking-tight ${
+                        summary.totalBalance >= 0 ? 'text-white' : 'text-[#E10613]'
+                      }`}
+                    >
+                      {formatBRL(summary.totalBalance)}
+                    </p>
+                    <p className="mt-2 text-xs text-white/40">
+                      Entradas menos saídas de todo o período
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-[#E10613]/20 bg-[#E10613]/10 p-2.5 text-[#E10613]">
+                    <WalletCards className="h-5 w-5" />
+                  </div>
+                </div>
+              </article>
+
+              {/* Receitas do Mês */}
+              <article className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 transition-all hover:-translate-y-0.5 hover:border-white/[0.14] hover:shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
+                <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-emerald-500/10 blur-3xl" />
+                <div className="relative flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-400/70">
+                      Receitas de {currentMonthName}
+                    </p>
+                    <p className="mt-3 text-2xl font-extrabold tracking-tight text-emerald-400">
+                      + {formatBRL(summary.monthIncome)}
+                    </p>
+                    <p className="mt-2 text-xs text-white/40">Total recebido este mês</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-emerald-400">
+                    <ArrowUpRight className="h-5 w-5" />
+                  </div>
+                </div>
+              </article>
+
+              {/* Despesas do Mês */}
+              <article className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 transition-all hover:-translate-y-0.5 hover:border-white/[0.14] hover:shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
+                <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-[#E10613]/10 blur-3xl" />
+                <div className="relative flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#FCA5A5]/70">
+                      Despesas de {currentMonthName}
+                    </p>
+                    <p className="mt-3 text-2xl font-extrabold tracking-tight text-[#FCA5A5]">
+                      - {formatBRL(summary.monthExpense)}
+                    </p>
+                    <p className="mt-2 text-xs text-white/40">Total gasto neste mês</p>
+                  </div>
+                  <div className="rounded-xl border border-[#E10613]/20 bg-[#E10613]/10 p-2.5 text-[#E10613]">
+                    <ArrowDownRight className="h-5 w-5" />
+                  </div>
+                </div>
+              </article>
+
+              {/* Resultado Líquido do Mês */}
+              <article className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 transition-all hover:-translate-y-0.5 hover:border-white/[0.14] hover:shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
+                <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-sky-500/10 blur-3xl" />
+                <div className="relative flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#63636D]">
+                      Resultado Líquido do Mês
+                    </p>
+                    <p
+                      className={`mt-3 text-2xl font-extrabold tracking-tight ${
+                        summary.netMonth >= 0 ? 'text-emerald-400' : 'text-[#E10613]'
+                      }`}
+                    >
+                      {summary.netMonth >= 0 ? '+' : ''}
+                      {formatBRL(summary.netMonth)}
+                    </p>
+                    <p className="mt-2 text-xs text-white/40">Sobrou da diferença no mês atual</p>
+                  </div>
+                  <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-2.5 text-sky-400">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                </div>
+              </article>
             </section>
 
-            <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)]">
+            {/* Gráficos Financeiros */}
+            <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,1fr)]">
+              {/* Gráfico de Evolução (Receitas vs Despesas) */}
               <article
                 className="animate-rise-in rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 sm:p-6"
-                style={{ animationDelay: '160ms' }}
+                style={{ animationDelay: '100ms' }}
               >
                 <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                   <div>
@@ -650,153 +685,154 @@ export default function Dashboard() {
                       <div className="rounded-lg bg-white/[0.04] p-2 text-white/55">
                         <Activity className="h-4 w-4" />
                       </div>
-                      <h2 className="text-base font-bold text-white">Evolução do caixa</h2>
+                      <h2 className="text-base font-bold text-white">Receitas vs. Despesas</h2>
                     </div>
-                    <p className="mt-2 text-xs text-white/35">
-                      Acompanhamento do saldo ao longo do período selecionado
+                    <p className="mt-1 text-xs text-white/40">
+                      Comparativo mensal dos últimos 6 meses para acompanhar seu fluxo
                     </p>
                   </div>
-                  <span className="inline-flex w-fit items-center rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/35">
-                    Sem período definido
+                  <span className="inline-flex w-fit items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                    Histórico 6 meses
                   </span>
                 </div>
-                <EmptyChart />
-              </article>
-
-              <article
-                className="animate-rise-in rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 sm:p-6"
-                style={{ animationDelay: '240ms' }}
-              >
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-white/[0.04] p-2 text-white/55">
-                    <CreditCard className="h-4 w-4" />
-                  </div>
-                  <h2 className="text-base font-bold text-white">Composição financeira</h2>
-                </div>
-                <p className="mt-2 text-xs text-white/35">
-                  Categorias e distribuição dos lançamentos
-                </p>
-                <div className="mt-6 rounded-xl border border-dashed border-white/10 bg-[#08080B]/50 p-5">
-                  <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full border-[14px] border-white/[0.05] border-t-[#E10613]/60 border-r-white/10">
-                    <span className="text-center text-[10px] font-bold uppercase leading-relaxed tracking-wider text-white/30">
-                      Sem
-                      <br />
-                      dados
-                    </span>
-                  </div>
-                  <p className="mt-5 text-center text-sm font-semibold text-white/65">
-                    Nenhuma categoria disponível
-                  </p>
-                  <p className="mt-1 text-center text-xs leading-relaxed text-white/35">
-                    A distribuição aparecerá após o cadastro dos primeiros lançamentos.
-                  </p>
-                </div>
-              </article>
-            </section>
-
-            <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)]">
-              <article
-                className="animate-rise-in rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 sm:p-6"
-                style={{ animationDelay: '320ms' }}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="rounded-lg bg-white/[0.04] p-2 text-white/55">
-                        <ListChecks className="h-4 w-4" />
-                      </div>
-                      <h2 className="text-base font-bold text-white">Comece por aqui</h2>
-                    </div>
-                    <p className="mt-2 text-xs text-white/35">
-                      Três passos para transformar o painel em uma fonte de decisão
-                    </p>
-                  </div>
-                  <span className="hidden text-[10px] font-bold uppercase tracking-wider text-[#E10613] sm:block">
-                    0% concluído
-                  </span>
-                </div>
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  {setupSteps.map((step) => {
-                    const Icon = step.icon
-                    return (
-                      <button
-                        key={step.number}
-                        type="button"
-                        onClick={() => showComingSoon(step.title)}
-                        className="group rounded-xl border border-white/[0.08] bg-[#08080B]/50 p-4 text-left transition-all hover:border-[#E10613]/30 hover:bg-[#E10613]/[0.04] focus:outline-none focus:ring-2 focus:ring-[#E10613]"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-extrabold tracking-[0.16em] text-[#E10613]">
-                            {step.number}
-                          </span>
-                          <Icon className="h-4 w-4 text-white/25 transition-colors group-hover:text-[#E10613]" />
-                        </div>
-                        <p className="mt-5 text-sm font-bold text-white/80">{step.title}</p>
-                        <p className="mt-2 text-xs leading-relaxed text-white/35">
-                          {step.description}
-                        </p>
-                        <span className="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-white/35 transition-colors group-hover:text-[#FCA5A5]">
-                          Preparar etapa
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </span>
-                      </button>
-                    )
-                  })}
+                <div className="mt-4">
+                  <FinancialTrendChart data={chartTrend} />
                 </div>
               </article>
 
+              {/* Composição das Despesas por Categoria */}
               <article
                 className="animate-rise-in rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 sm:p-6"
-                style={{ animationDelay: '400ms' }}
+                style={{ animationDelay: '180ms' }}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="rounded-lg bg-white/[0.04] p-2 text-white/55">
-                        <Activity className="h-4 w-4" />
-                      </div>
-                      <h2 className="text-base font-bold text-white">Atividade recente</h2>
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-lg bg-white/[0.04] p-2 text-white/55">
+                      <PieChart className="h-4 w-4" />
                     </div>
-                    <p className="mt-2 text-xs text-white/35">Últimos movimentos registrados</p>
+                    <div>
+                      <h2 className="text-base font-bold text-white">Onde gastei este mês</h2>
+                      <p className="text-xs text-white/40">
+                        Distribuição das despesas por categoria
+                      </p>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => showComingSoon('Movimentações')}
-                    className="hidden items-center gap-1 text-xs font-semibold text-[#FCA5A5] transition-colors hover:text-white sm:inline-flex"
-                  >
-                    Ver tudo
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
                 </div>
-                <div className="mt-6 flex min-h-[186px] flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-[#08080B]/50 px-6 text-center">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.03]">
-                    <ReceiptText className="h-5 w-5 text-white/25" />
-                  </div>
-                  <p className="mt-4 text-sm font-semibold text-white/65">
-                    Nenhuma atividade recente
-                  </p>
-                  <p className="mt-1 max-w-xs text-xs leading-relaxed text-white/35">
-                    Os lançamentos e alterações aparecerão aqui assim que o sistema começar a ser
-                    utilizado.
-                  </p>
+                <div className="mt-5">
+                  <ExpenseCategoriesCard categories={expenseCategories} />
                 </div>
               </article>
             </section>
 
+            {/* Lista de Transações Recentes */}
+            <section className="mt-6 animate-rise-in" style={{ animationDelay: '240ms' }}>
+              <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-lg bg-white/[0.04] p-2 text-white/55">
+                      <ReceiptText className="h-4 w-4" />
+                    </div>
+                    <h2 className="text-lg font-bold text-white">Transações Recentes</h2>
+                  </div>
+                  <p className="mt-1 text-xs text-white/40">
+                    Histórico com valores, categorias e datas de cada lançamento
+                  </p>
+                </div>
+
+                {/* Filtro simples: Todas, Receitas, Despesas */}
+                <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#08080B] p-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('all')}
+                    className={`rounded-lg px-3 py-1.5 font-semibold transition-colors ${
+                      filterType === 'all'
+                        ? 'bg-white/10 text-white font-bold'
+                        : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    Todas ({transactions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('income')}
+                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 font-semibold transition-colors ${
+                      filterType === 'income'
+                        ? 'bg-emerald-500/20 text-emerald-400 font-bold'
+                        : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />
+                    Receitas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('expense')}
+                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 font-semibold transition-colors ${
+                      filterType === 'expense'
+                        ? 'bg-[#E10613]/20 text-[#FCA5A5] font-bold'
+                        : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    <ArrowDownRight className="h-3.5 w-3.5 text-[#E10613]" />
+                    Despesas
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabela de Transações */}
+              <TransactionList
+                transactions={displayedTransactions}
+                onDelete={handleDeleteTransaction}
+                onNewTransaction={() => setIsNewTxModalOpen(true)}
+              />
+            </section>
+
+            {/* Dicas para o iniciante */}
+            <section
+              className="mt-6 rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 sm:p-6"
+              aria-label="Dicas financeiras"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E10613]/30 bg-[#E10613]/10 text-[#E10613]">
+                    <ListChecks className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Dica Rubra: Mantenha seus registros sempre em dia
+                    </h3>
+                    <p className="mt-1 max-w-2xl text-xs leading-relaxed text-white/45">
+                      Cadastre cada despesa no momento em que ela acontecer. Isso garante gráficos
+                      precisos e evita surpresas no fechamento do mês.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsNewTxModalOpen(true)}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:border-[#E10613]/30 hover:bg-[#E10613]/10 hover:text-[#FCA5A5]"
+                >
+                  <Plus className="h-3.5 w-3.5 text-[#E10613]" />
+                  Adicionar lançamento
+                </button>
+              </div>
+            </section>
+
+            {/* Footer */}
             <footer className="mt-8 flex flex-col justify-between gap-3 border-t border-white/[0.08] py-5 text-xs text-white/30 sm:flex-row sm:items-center">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-white/25" />
-                <span>Dados protegidos pelo ambiente seguro do RUBRA</span>
+                <span>Rubra Financial Suite • Dados protegidos com criptografia</span>
               </div>
               <div className="flex items-center gap-4">
-                <span>Base financeira: em configuração</span>
+                <span>Perfil: {roleLabels[user.role]}</span>
                 <button
                   type="button"
                   onClick={handleLogout}
                   className="inline-flex items-center gap-1.5 font-semibold text-white/45 transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[#E10613]"
                 >
                   <LogOut className="h-3.5 w-3.5" />
-                  Sair
+                  Sair do sistema
                 </button>
               </div>
             </footer>
