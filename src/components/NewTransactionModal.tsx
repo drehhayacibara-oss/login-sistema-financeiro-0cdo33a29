@@ -38,15 +38,39 @@ const COMMON_CATEGORIES = {
     'Outras receitas',
   ],
   expense: [
-    'Infraestrutura',
+    'Custo dos Serviços Prestados (competência)',
+    'Pagamento de Fornecedores (referência)',
+    'Impostos sobre SERVIÇOS - ISS',
+    'Impostos Federais (DARFs)',
+    'Comissão dos cartões',
+    'Comissão médicos terceiros DR. WANDERSON',
+    'Comissão médicos terceiros',
+    'Associação Comercial/crm/outros orgaos',
+    'Correio/papelaria/grafica',
+    'Higiene/limpeza/cozinha/copa',
+    'Salários',
+    '13 Salario',
+    'Encargos Trabalhistas',
+    'Encargos 13 Salario Provisionado',
     'Aluguel',
-    'Tecnologia & Software',
-    'Marketing & Anúncios',
-    'Operacional',
-    'Alimentação',
-    'Transporte & Combustível',
-    'Impostos & Taxas',
-    'Outras despesas',
+    'Iptu',
+    'Prolabore',
+    'Energia',
+    'Telefone e internet',
+    'Água',
+    'Manutenção',
+    'Aluguel consultorio Guaira',
+    'Sistema de Informatica',
+    'Contador',
+    'Curso e Especializações',
+    'Consultoria/Marketing',
+    'Seguro',
+    'Outros Fixos',
+    'Outros Variaveis',
+    'Financiamentos',
+    'Empréstimos',
+    'Juros / Antecipação',
+    'Bens',
   ],
 }
 
@@ -258,21 +282,26 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </div>
 
             {/* Sugestões rápidas de categoria */}
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {COMMON_CATEGORIES[type].slice(0, 6).map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setCategory(cat)}
-                  className={`rounded-lg border px-2 py-1 text-[11px] transition-colors ${
-                    category === cat
-                      ? 'border-[#E10613]/50 bg-[#E10613]/20 font-bold text-white'
-                      : 'border-white/10 bg-white/[0.03] text-white/50 hover:bg-white/[0.06] hover:text-white'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+            <div className="mt-2">
+              <span className="text-[11px] text-white/40 block mb-1.5">
+                Sugestões de categorias:
+              </span>
+              <div className="max-h-36 overflow-y-auto pr-1 flex flex-wrap gap-1.5 custom-scrollbar">
+                {COMMON_CATEGORIES[type].map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategory(cat)}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] transition-colors text-left ${
+                      category === cat
+                        ? 'border-[#E10613]/60 bg-[#E10613]/25 font-bold text-white shadow-[0_0_10px_rgba(225,6,19,0.2)]'
+                        : 'border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.08] hover:text-white hover:border-white/20'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
