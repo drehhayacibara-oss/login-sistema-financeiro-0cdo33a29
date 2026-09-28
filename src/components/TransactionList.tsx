@@ -5,12 +5,14 @@ import { formatBRL, formatDatePtBR } from '@/services/transactions'
 
 interface TransactionListProps {
   transactions: Transaction[]
+  showEntityBadge?: boolean
   onDelete?: (id: string) => void
   onNewTransaction: () => void
 }
 
 export const TransactionList: React.FC<TransactionListProps> = ({
   transactions,
+  showEntityBadge = true,
   onDelete,
   onNewTransaction,
 }) => {
@@ -70,10 +72,28 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-white group-hover:text-white/95">
-                        {t.description}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-semibold text-white group-hover:text-white/95">
+                          {t.description}
+                        </p>
+                        {showEntityBadge && (
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider border ${
+                              t.entity === 'pf'
+                                ? 'border-sky-500/30 bg-sky-500/10 text-sky-400'
+                                : 'border-[#E10613]/30 bg-[#E10613]/10 text-[#FCA5A5]'
+                            }`}
+                          >
+                            {t.entity === 'pf' ? 'PF' : 'PJ'}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-white/40 sm:hidden">
+                        {showEntityBadge && (
+                          <span className="font-bold text-white/60 mr-1">
+                            [{t.entity === 'pf' ? 'PF' : 'PJ'}]
+                          </span>
+                        )}
                         {t.category} • {formatDatePtBR(t.date)}
                       </p>
                     </div>

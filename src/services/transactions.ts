@@ -2,11 +2,13 @@ import pb from '@/lib/pocketbase/client'
 import type { RecordModel } from 'pocketbase'
 
 export type TransactionType = 'income' | 'expense'
+export type TransactionEntity = 'pf' | 'pj'
 
 export interface Transaction {
   id: string
   user: string
   type: TransactionType
+  entity: TransactionEntity
   amount: number
   description: string
   category: string
@@ -17,6 +19,7 @@ export interface Transaction {
 
 export interface CreateTransactionDTO {
   type: TransactionType
+  entity: TransactionEntity
   amount: number
   description: string
   category: string
@@ -52,6 +55,7 @@ function mapRecordToTransaction(record: RecordModel): Transaction {
     id: record.id,
     user: record.user as string,
     type: record.type as TransactionType,
+    entity: (record.entity as TransactionEntity) || 'pj',
     amount: Number(record.amount) || 0,
     description: (record.description as string) || '',
     category: (record.category as string) || 'Geral',
@@ -83,6 +87,7 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
   const record = await pb.collection('transactions').create({
     user: userId,
     type: data.type,
+    entity: data.entity || 'pj',
     amount: data.amount,
     description: data.description.trim(),
     category: data.category.trim(),

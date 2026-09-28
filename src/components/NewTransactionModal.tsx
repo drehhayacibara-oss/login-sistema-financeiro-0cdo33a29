@@ -12,14 +12,20 @@ import { Label } from '@/components/ui/label'
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Building2,
   Calendar,
   Check,
   DollarSign,
   Loader2,
   Tag,
   Type,
+  User,
 } from 'lucide-react'
-import type { CreateTransactionDTO, TransactionType } from '@/services/transactions'
+import type {
+  CreateTransactionDTO,
+  TransactionEntity,
+  TransactionType,
+} from '@/services/transactions'
 
 interface NewTransactionModalProps {
   open: boolean
@@ -27,7 +33,8 @@ interface NewTransactionModalProps {
   onSubmit: (data: CreateTransactionDTO) => Promise<void>
 }
 
-const COMMON_CATEGORIES = {
+// Categorias PJ: NÃO alterar nem renomear nada delas (33 despesas e 31 receitas na ordem exata original)
+const CATEGORIES_PJ = {
   income: [
     'Consultas/US  dinheiro/cheque a vista/pix',
     'Consultas cartão crédito',
@@ -98,11 +105,39 @@ const COMMON_CATEGORIES = {
   ],
 }
 
+// Categorias PF: sugestões padrão solicitadas pelo usuário
+const CATEGORIES_PF = {
+  income: [
+    'Salário',
+    'Férias & 13º',
+    'Rendimentos de investimentos',
+    'Reembolsos',
+    'Vendas de itens pessoais',
+    'Presentes recebidos',
+    'Outros',
+  ],
+  expense: [
+    'Moradia (Aluguel/Condomínio)',
+    'Contas de consumo (Luz, Água, Internet, Telefone)',
+    'Mercado & Alimentação',
+    'Saúde (Plano de Saúde, Farmácia)',
+    'Educação',
+    'Transporte',
+    'Lazer & Restaurantes',
+    'Academia',
+    'Cartão de crédito',
+    'Impostos (IR)',
+    'Assinaturas & Streaming',
+    'Outros',
+  ],
+}
+
 export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   open,
   onOpenChange,
   onSubmit,
 }) => {
+  const [entity, setEntity] = useState<TransactionEntity>('pj')
   const [type, setType] = useState<TransactionType>('expense')
   const [amount, setAmount] = useState<string>('')
   const [description, setDescription] = useState<string>('')
@@ -111,7 +146,10 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
 
+  const currentCategories = entity === 'pf' ? CATEGORIES_PF : CATEGORIES_PJ
+
   const resetForm = () => {
+    setEntity('pj')
     setType('expense')
     setAmount('')
     setDescription('')
@@ -159,6 +197,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       setIsSubmitting(true)
       await onSubmit({
         type,
+        entity,
         amount: Math.round(numericAmount * 100) / 100,
         description: description.trim(),
         category: category.trim(),
@@ -196,6 +235,53 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </div>
           )}
 
+          {/* Contexto: PF / PJ */}
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-2 block">
+              Contexto do lançamento
+            </Label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (entity !== 'pj') {
+                    setEntity('pj')
+                    setCategory('')
+                  }
+                }}
+                className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-bold transition-all ${
+                  entity === 'pj'
+                    ? 'border-[#E10613]/60 bg-[#E10613]/15 text-white shadow-[0_0_15px_rgba(225,6,19,0.25)]'
+                    : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white'
+                }`}
+              >
+                <Building2
+                  className={`h-4 w-4 ${entity === 'pj' ? 'text-[#E10613]' : 'text-white/40'}`}
+                />
+                Pessoa Jurídica (PJ)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (entity !== 'pf') {
+                    setEntity('pf')
+                    setCategory('')
+                  }
+                }}
+                className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-bold transition-all ${
+                  entity === 'pf'
+                    ? 'border-[#E10613]/60 bg-[#E10613]/15 text-white shadow-[0_0_15px_rgba(225,6,19,0.25)]'
+                    : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white'
+                }`}
+              >
+                <User
+                  className={`h-4 w-4 ${entity === 'pf' ? 'text-[#E10613]' : 'text-white/40'}`}
+                />
+                Pessoa Física (PF)
+              </button>
+            </div>
+          </div>
+
           {/* Tipo de Transação */}
           <div>
             <Label className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-2 block">
@@ -206,7 +292,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 type="button"
                 onClick={() => {
                   setType('income')
-                  if (!COMMON_CATEGORIES.income.includes(category)) {
+                  if (!currentCategories.income.includes(category)) {
                     setCategory('')
                   }
                 }}
@@ -223,7 +309,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 type="button"
                 onClick={() => {
                   setType('expense')
-                  if (!COMMON_CATEGORIES.expense.includes(category)) {
+                  if (!currentCategories.expense.includes(category)) {
                     setCategory('')
                   }
                 }}
@@ -308,10 +394,10 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             {/* Sugestões rápidas de categoria */}
             <div className="mt-2">
               <span className="text-[11px] text-white/40 block mb-1.5">
-                Sugestões de categorias:
+                Sugestões de categorias ({entity === 'pf' ? 'Pessoa Física' : 'Pessoa Jurídica'}):
               </span>
               <div className="max-h-40 overflow-y-auto pr-1 flex flex-wrap gap-1.5 custom-scrollbar">
-                {COMMON_CATEGORIES[type].map((cat) => (
+                {currentCategories[type].map((cat) => (
                   <button
                     key={cat}
                     type="button"

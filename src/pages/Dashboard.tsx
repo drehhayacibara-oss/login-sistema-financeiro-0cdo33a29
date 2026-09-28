@@ -21,6 +21,7 @@ import {
   Settings2,
   ShieldCheck,
   TrendingUp,
+  User,
   WalletCards,
   X,
 } from 'lucide-react'
@@ -29,6 +30,7 @@ import { useToast } from '@/hooks/use-toast'
 import {
   type CreateTransactionDTO,
   type Transaction,
+  type TransactionEntity,
   calculateExpenseCategories,
   calculateMonthlyTrend,
   calculateSummary,
@@ -276,6 +278,7 @@ export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isNewTxModalOpen, setIsNewTxModalOpen] = useState(false)
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [selectedEntity, setSelectedEntity] = useState<'all' | 'pj' | 'pf'>('all')
   const [loadingData, setLoadingData] = useState(true)
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all')
 
@@ -377,6 +380,12 @@ export default function Dashboard() {
     }
   }
 
+  // Transações filtradas pelo contexto global PF/PJ
+  const entityFilteredTransactions = useMemo(() => {
+    if (selectedEntity === 'all') return transactions
+    return transactions.filter((t) => t.entity === selectedEntity)
+  }, [transactions, selectedEntity])
+
   // Current Month calculation
   const currentMonthKey = useMemo(() => new Date().toISOString().slice(0, 7), [])
 
@@ -397,24 +406,24 @@ export default function Dashboard() {
     return formatted.charAt(0).toUpperCase() + formatted.slice(1)
   }, [])
 
-  // Summaries and charts data
+  // Summaries and charts data respeitando o filtro de contexto global
   const summary = useMemo(() => {
-    return calculateSummary(transactions, currentMonthKey)
-  }, [transactions, currentMonthKey])
+    return calculateSummary(entityFilteredTransactions, currentMonthKey)
+  }, [entityFilteredTransactions, currentMonthKey])
 
   const chartTrend = useMemo(() => {
-    return calculateMonthlyTrend(transactions, 6)
-  }, [transactions])
+    return calculateMonthlyTrend(entityFilteredTransactions, 6)
+  }, [entityFilteredTransactions])
 
   const expenseCategories = useMemo(() => {
-    return calculateExpenseCategories(transactions, currentMonthKey)
-  }, [transactions, currentMonthKey])
+    return calculateExpenseCategories(entityFilteredTransactions, currentMonthKey)
+  }, [entityFilteredTransactions, currentMonthKey])
 
-  // Filtered transactions for recent activity table
+  // Filtered transactions for recent activity table (contexto + tipo)
   const displayedTransactions = useMemo(() => {
-    if (filterType === 'all') return transactions
-    return transactions.filter((t) => t.type === filterType)
-  }, [transactions, filterType])
+    if (filterType === 'all') return entityFilteredTransactions
+    return entityFilteredTransactions.filter((t) => t.type === filterType)
+  }, [entityFilteredTransactions, filterType])
 
   const handleLogout = () => {
     logout()
@@ -513,9 +522,48 @@ export default function Dashboard() {
               </div>
 
               <div className="flex items-center gap-3 sm:gap-4">
-                <div className="hidden items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-400 md:flex">
+                {/* Seletor Global de Visão PF / PJ / Ambas */}
+                <div className="flex items-center rounded-xl border border-white/10 bg-[#0D0D11] p-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEntity('all')}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 font-bold transition-all ${
+                      selectedEntity === 'all'
+                        ? 'bg-white/15 text-white shadow-sm'
+                        : 'text-white/50 hover:text-white'
+                    }`}
+                  >
+                    <span>Ambas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEntity('pj')}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 font-bold transition-all ${
+                      selectedEntity === 'pj'
+                        ? 'border border-[#E10613]/50 bg-[#E10613]/20 text-[#FCA5A5] shadow-[0_0_12px_rgba(225,6,19,0.25)]'
+                        : 'text-white/50 hover:text-white'
+                    }`}
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Pessoa</span> Jurídica
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEntity('pf')}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 font-bold transition-all ${
+                      selectedEntity === 'pf'
+                        ? 'border border-sky-500/50 bg-sky-500/20 text-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.25)]'
+                        : 'text-white/50 hover:text-white'
+                    }`}
+                  >
+                    <User className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Pessoa</span> Física
+                  </button>
+                </div>
+
+                <div className="hidden items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-400 xl:flex">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Ambiente conectado ao vivo</span>
+                  <span>Ao vivo</span>
                 </div>
 
                 <div className="flex items-center gap-3 border-l border-white/10 pl-3 sm:pl-4">
@@ -782,6 +830,7 @@ export default function Dashboard() {
               {/* Tabela de Transações */}
               <TransactionList
                 transactions={displayedTransactions}
+                showEntityBadge={selectedEntity === 'all'}
                 onDelete={handleDeleteTransaction}
                 onNewTransaction={() => setIsNewTxModalOpen(true)}
               />
