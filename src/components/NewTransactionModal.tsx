@@ -109,18 +109,16 @@ const CATEGORIES_PJ = {
 const CATEGORIES_PF = {
   income: ['APOSENTADORIA INSTITUTO', 'APOSENTADORIA INSS', 'OUTRAS RECEITAS', 'PROLABORE'],
   expense: [
-    'Moradia (Aluguel/Condomínio)',
-    'Contas de consumo (Luz, Água, Internet, Telefone)',
-    'Mercado & Alimentação',
-    'Saúde (Plano de Saúde, Farmácia)',
-    'Educação',
-    'Transporte',
-    'Lazer & Restaurantes',
-    'Academia',
-    'Cartão de crédito',
-    'Impostos (IR)',
-    'Assinaturas & Streaming',
-    'Outros',
+    'CASA DA AVENIDA 3',
+    'REFORMA',
+    'FILHOS',
+    'CASA DA AVENIDA 47',
+    'CARROS E MOTOS',
+    'CARTOES',
+    'TAXA E JUROS BANCARIOS',
+    'EMPRESTIMO',
+    'INVESTIMENTO',
+    'DESPESAS EXTRAS',
   ],
 }
 

@@ -29,30 +29,21 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "role",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "direcao",
-            "gestao_financeira",
-            "recepcao"
-          ]
+          "selectValues": ["direcao", "gestao_financeira", "recepcao"]
         }
       ],
       "indexes": [
@@ -83,10 +74,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "income",
-            "expense"
-          ]
+          "selectValues": ["income", "expense"]
         },
         {
           "name": "amount",
@@ -117,29 +105,21 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "entity",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "pf",
-            "pj"
-          ]
+          "selectValues": ["pf", "pj"]
         }
       ],
       "indexes": [
