@@ -29,13 +29,37 @@ interface NewTransactionModalProps {
 
 const COMMON_CATEGORIES = {
   income: [
-    'Serviços',
-    'Honorários',
-    'Vendas',
-    'Consultoria',
-    'Investimentos',
-    'Reembolso',
-    'Outras receitas',
+    'Consultas/US  dinheiro/cheque a vista/pix',
+    'Consultas cartão crédito',
+    'Consultas cartão de débito',
+    'Cosultas/ US Cheques pré',
+    'Pequenos procedimentos dinheiro/cheque',
+    'Pequenos procedimentos Cartão de Crédito',
+    'Pequenos procedimentos Cartão de débito',
+    'Pequenos procedimentos Cheques pré',
+    'Consultas de Convênio Unimed DR. EDSON',
+    'Consultas de Convênio Unimed DR. WANDERSON',
+    'Consulta Hap vida Dr. Wandersom',
+    'Consulta Hap vida Dr. Dr. Edson',
+    'Procedimento Unimed',
+    'Procedimento Hap Vida',
+    'Laboratório dinheiro',
+    'Laboratório Cartão débito',
+    'Laboratório Cartão de Crédito',
+    'Laboratório Cheques à vista',
+    'Laboratório Cheques pré',
+    'Laboratoio Pix',
+    'Centro Cirúrgico dinheiro/Pix',
+    'Centro Cirúrgico cheque',
+    'Centro Cirúrgico cartao debito',
+    'Centro Cirúrgico cartão de crédito',
+    'Centro Cirúrgico cheques pré',
+    'Centro Cirúrgico convênio Hap Vida',
+    'Centro Cirúrgico convênio Unimed',
+    'Receitas totais Cirurgias Hospitais Externos particular',
+    'Receitas totais Cirurgias Hospitais Externos HAP VIDA',
+    'Receitas totais Cirurgias Hospitais Externos UNIMED',
+    'Receita de Aluguel',
   ],
   expense: [
     'Custo dos Serviços Prestados (competência)',
@@ -286,7 +310,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               <span className="text-[11px] text-white/40 block mb-1.5">
                 Sugestões de categorias:
               </span>
-              <div className="max-h-36 overflow-y-auto pr-1 flex flex-wrap gap-1.5 custom-scrollbar">
+              <div className="max-h-40 overflow-y-auto pr-1 flex flex-wrap gap-1.5 custom-scrollbar">
                 {COMMON_CATEGORIES[type].map((cat) => (
                   <button
                     key={cat}
