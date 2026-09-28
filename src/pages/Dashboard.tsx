@@ -40,10 +40,12 @@ import {
   formatBRL,
 } from '@/services/transactions'
 import { NewTransactionModal } from '@/components/NewTransactionModal'
+import { ImportStatementModal } from '@/components/ImportStatementModal'
 import { FinancialTrendChart } from '@/components/FinancialTrendChart'
 import { ExpenseCategoriesCard } from '@/components/ExpenseCategoriesCard'
 import { TransactionList } from '@/components/TransactionList'
 import pb from '@/lib/pocketbase/client'
+import { FileSpreadsheet } from 'lucide-react'
 
 type SidebarProps = {
   role: UserRole
@@ -51,6 +53,7 @@ type SidebarProps = {
   onClose?: () => void
   onFeatureClick: (feature: string) => void
   onNewTransaction: () => void
+  onImportStatement: () => void
 }
 
 type NavigationItem = {
@@ -143,6 +146,7 @@ function Sidebar({
   onClose,
   onFeatureClick,
   onNewTransaction,
+  onImportStatement,
 }: SidebarProps) {
   return (
     <aside
@@ -178,7 +182,7 @@ function Sidebar({
         )}
       </div>
 
-      <div className="p-4">
+      <div className="p-4 space-y-2">
         <button
           type="button"
           onClick={() => {
@@ -189,6 +193,18 @@ function Sidebar({
         >
           <Plus className="h-4 w-4" />
           Nova Transação
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (mobile && onClose) onClose()
+            onImportStatement()
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white/80 transition-all hover:border-[#E10613]/40 hover:bg-[#E10613]/10 hover:text-white"
+        >
+          <FileSpreadsheet className="h-4 w-4 text-[#E10613]" />
+          Importar Extrato
         </button>
       </div>
 
@@ -277,6 +293,7 @@ export default function Dashboard() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isNewTxModalOpen, setIsNewTxModalOpen] = useState(false)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [selectedEntity, setSelectedEntity] = useState<'all' | 'pj' | 'pf'>('all')
   const [loadingData, setLoadingData] = useState(true)
@@ -355,6 +372,16 @@ export default function Dashboard() {
     toast({
       title: 'Transação adicionada com sucesso!',
       description: `${dto.type === 'income' ? 'Receita' : 'Despesa'} de ${formatBRL(dto.amount)} cadastrada.`,
+      className: 'border-l-4 border-l-emerald-500 bg-[#121216] text-white',
+    })
+  }
+
+  // Handle statement import completion
+  const handleImportComplete = (createdCount: number) => {
+    loadTransactions()
+    toast({
+      title: 'Extrato importado com sucesso!',
+      description: `${createdCount} ${createdCount === 1 ? 'lançamento foi importado' : 'lançamentos foram importados'} para o Rubra.`,
       className: 'border-l-4 border-l-emerald-500 bg-[#121216] text-white',
     })
   }
@@ -480,6 +507,7 @@ export default function Dashboard() {
             onClose={() => setIsSidebarOpen(false)}
             onFeatureClick={showComingSoon}
             onNewTransaction={() => setIsNewTxModalOpen(true)}
+            onImportStatement={() => setIsImportModalOpen(true)}
           />
         </>
       )}
@@ -491,11 +519,21 @@ export default function Dashboard() {
         onSubmit={handleCreateTransaction}
       />
 
+      {/* Modal Importar Extrato (CSV/OFX em 3 etapas) */}
+      <ImportStatementModal
+        open={isImportModalOpen}
+        onOpenChange={setIsImportModalOpen}
+        existingTransactions={transactions}
+        onImportComplete={handleImportComplete}
+        createTransactionFn={createTransaction}
+      />
+
       <div className="flex min-h-screen">
         <Sidebar
           role={user.role}
           onFeatureClick={showComingSoon}
           onNewTransaction={() => setIsNewTxModalOpen(true)}
+          onImportStatement={() => setIsImportModalOpen(true)}
         />
 
         <div className="min-w-0 flex-1">
@@ -615,6 +653,14 @@ export default function Dashboard() {
                     className={`h-3.5 w-3.5 ${loadingData ? 'animate-spin text-[#E10613]' : ''}`}
                   />
                   Recarregar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 text-sm font-bold text-white transition-all hover:border-[#E10613]/50 hover:bg-[#E10613]/10 hover:shadow-[0_0_20px_rgba(225,6,19,0.2)] focus:ring-4 focus:ring-[#E10613]/30"
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-[#E10613]" />
+                  Importar extrato
                 </button>
                 <button
                   type="button"
@@ -833,6 +879,7 @@ export default function Dashboard() {
                 showEntityBadge={selectedEntity === 'all'}
                 onDelete={handleDeleteTransaction}
                 onNewTransaction={() => setIsNewTxModalOpen(true)}
+                onImportStatement={() => setIsImportModalOpen(true)}
               />
             </section>
 

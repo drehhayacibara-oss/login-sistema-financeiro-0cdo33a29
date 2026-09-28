@@ -8,6 +8,7 @@ interface TransactionListProps {
   showEntityBadge?: boolean
   onDelete?: (id: string) => void
   onNewTransaction: () => void
+  onImportStatement?: () => void
 }
 
 export const TransactionList: React.FC<TransactionListProps> = ({
@@ -15,6 +16,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   showEntityBadge = true,
   onDelete,
   onNewTransaction,
+  onImportStatement,
 }) => {
   if (transactions.length === 0) {
     return (
@@ -24,16 +26,27 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         </div>
         <p className="mt-4 text-base font-bold text-white">Nenhum lançamento encontrado</p>
         <p className="mt-1 max-w-sm text-xs leading-relaxed text-white/40">
-          Você ainda não possui transações cadastradas. Comece adicionando sua primeira receita ou
-          despesa.
+          Você ainda não possui transações cadastradas. Comece criando um lançamento manual ou
+          importe seu extrato bancário.
         </p>
-        <button
-          type="button"
-          onClick={onNewTransaction}
-          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#E10613] px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_20px_rgba(225,6,19,0.3)] transition-all hover:bg-[#C00510]"
-        >
-          Criar primeiro lançamento
-        </button>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={onNewTransaction}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#E10613] px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_20px_rgba(225,6,19,0.3)] transition-all hover:bg-[#C00510]"
+          >
+            Criar primeiro lançamento
+          </button>
+          {onImportStatement && (
+            <button
+              type="button"
+              onClick={onImportStatement}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-xs font-bold text-white transition-all hover:border-[#E10613]/50 hover:bg-[#E10613]/10"
+            >
+              Importar extrato CSV / OFX
+            </button>
+          )}
+        </div>
       </div>
     )
   }
