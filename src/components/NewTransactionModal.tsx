@@ -107,15 +107,7 @@ const CATEGORIES_PJ = {
 
 // Categorias PF: sugestões padrão solicitadas pelo usuário
 const CATEGORIES_PF = {
-  income: [
-    'Salário',
-    'Férias & 13º',
-    'Rendimentos de investimentos',
-    'Reembolsos',
-    'Vendas de itens pessoais',
-    'Presentes recebidos',
-    'Outros',
-  ],
+  income: ['APOSENTADORIA INSTITUTO', 'APOSENTADORIA INSS', 'OUTRAS RECEITAS', 'PROLABORE'],
   expense: [
     'Moradia (Aluguel/Condomínio)',
     'Contas de consumo (Luz, Água, Internet, Telefone)',
