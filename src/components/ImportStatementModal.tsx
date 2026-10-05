@@ -467,9 +467,8 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
               ? 'OUTRAS RECEITAS'
               : 'DESPESAS EXTRAS'
             : item.type === 'income'
-              ? 'Receitas totais Cirurgias Hospitais Externos particular'
-              : 'Outros Variaveis')
-
+              ? 'TED'
+              : 'TARIFAS BANCARIAS')
         // Garante que a data está em formato ISO YYYY-MM-DD
         const validIsoDate = parseDateToISO(item.date) || item.date
         if (!validIsoDate || !validIsoDate.trim()) {
