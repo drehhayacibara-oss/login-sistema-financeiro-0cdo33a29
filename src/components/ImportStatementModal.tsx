@@ -239,7 +239,7 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
     const items: ParsedStatementTransaction[] = []
     let count = 0
 
-    rows.forEach((row) => {
+    rows.forEach((row, rowIdx) => {
       const rawDate = row[colMap.dateCol]
       const rawDesc = row[colMap.descCol]
       const rawAmt = row[colMap.amountCol]
@@ -270,13 +270,13 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
 
       count++
       items.push({
-        tempId: `mapped-${count}-${Date.now()}`,
+        tempId: `mapped-${count}-${Date.now()}-${rowIdx}`,
         date: isoDate,
         description: rawDesc || 'Lançamento bancário',
         amount: Math.round(num * 100) / 100,
         type: isIncome ? 'income' : 'expense',
         category: '',
-        servico: globalService || '',
+        servico: globalEntity === 'pj' ? globalService || '' : '',
         entity: globalEntity,
         selected: true,
       })

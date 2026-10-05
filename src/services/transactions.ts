@@ -81,7 +81,9 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
     throw new Error('Usuário não autenticado.')
   }
 
-  // Format date correctly for PocketBase if only YYYY-MM-DD
+  // Format date correctly for PocketBase:
+  // Se for YYYY-MM-DD, grava 'YYYY-MM-DD 12:00:00.000Z' (meio-dia UTC) para evitar que
+  // qualquer fuso horário (ex: UTC-3 brasileiro) recue o dia ao exibir
   let formattedDate = data.date
   if (/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
     formattedDate = `${formattedDate} 12:00:00.000Z`
@@ -245,7 +247,16 @@ export function formatBRL(value: number): string {
 }
 
 export function formatDatePtBR(dateString: string): string {
+  if (!dateString) return ''
   try {
+    // Se a string começar com YYYY-MM-DD, extrai diretamente os componentes da data
+    // Isso evita qualquer distorção de fuso horário do navegador ao formatar
+    const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (match) {
+      const [, y, m, d] = match
+      return `${d}/${m}/${y}`
+    }
+
     const d = new Date(dateString)
     if (isNaN(d.getTime())) return dateString
     return new Intl.DateTimeFormat('pt-BR', {

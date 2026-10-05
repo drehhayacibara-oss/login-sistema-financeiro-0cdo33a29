@@ -99,17 +99,36 @@ export function parseBRLNumber(rawVal: string): { amount: number; isNegative: bo
  */
 export function parseDateToISO(rawDate: string): string | null {
   if (!rawDate) return null
-  const str = rawDate.trim()
+  // Remove espaços e tags/colchetes acidentais no início ou fim
+  let str = rawDate.trim()
 
-  // YYYYMMDD (comum em OFX: 20260401 ou 20260401120000)
-  const matchOfx = str.match(/^(\d{4})(\d{2})(\d{2})/)
+  // Se vier com quebras de linha ou caracteres de fechamento SGML
+  str = str.replace(/<.*$/, '').trim()
+
+  // 1. OFX com timestamp e timezone (ex: 20241225120000 ou com fuso horario entre colchetes)
+  // Ou simples YYYYMMDD (ex: 20241225)
+  // Sempre extrair dia, mês e ano diretamente da string sem passar por Date() para evitar deslocamento de fuso!
+  const matchOfx = str.match(/(\d{4})(\d{2})(\d{2})/)
   if (matchOfx && !str.includes('/') && !str.includes('-')) {
     const [, y, m, d] = matchOfx
-    return `${y}-${m}-${d}`
+    const yearNum = parseInt(y, 10)
+    const monthNum = parseInt(m, 10)
+    const dayNum = parseInt(d, 10)
+    if (
+      yearNum >= 1990 &&
+      yearNum <= 2100 &&
+      monthNum >= 1 &&
+      monthNum <= 12 &&
+      dayNum >= 1 &&
+      dayNum <= 31
+    ) {
+      return `${y}-${m}-${d}`
+    }
   }
 
-  // DD/MM/YYYY ou DD-MM-YYYY
-  const matchBr = str.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/)
+  // 2. Formato brasileiro: DD/MM/YYYY ou DD-MM-YYYY (comum em CSVs do BB, Itaú, Bradesco, CEF, Nubank)
+  // Também suporta com hora anexada (ex: "25/12/2024 14:30:00" ou "25/12/2024")
+  const matchBr = str.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/)
   if (matchBr) {
     const d = matchBr[1].padStart(2, '0')
     const m = matchBr[2].padStart(2, '0')
@@ -117,7 +136,7 @@ export function parseDateToISO(rawDate: string): string | null {
     return `${y}-${m}-${d}`
   }
 
-  // YYYY-MM-DD
+  // 3. Formato ISO: YYYY-MM-DD ou YYYY/MM/DD (com ou sem hora ISO: 2024-12-25T12:00:00)
   const matchIso = str.match(/^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})/)
   if (matchIso) {
     const y = matchIso[1]
@@ -126,11 +145,36 @@ export function parseDateToISO(rawDate: string): string | null {
     return `${y}-${m}-${d}`
   }
 
-  // Tenta Date.parse
-  const timestamp = Date.parse(str)
-  if (!isNaN(timestamp)) {
-    const dateObj = new Date(timestamp)
-    return dateObj.toISOString().slice(0, 10)
+  // 4. Formato compacto de CSV: DDMMYYYY (ex: 25122024)
+  const matchCompactBr = str.match(/^(\d{2})(\d{2})(\d{4})$/)
+  if (matchCompactBr) {
+    const d = matchCompactBr[1]
+    const m = matchCompactBr[2]
+    const y = matchCompactBr[3]
+    const monthNum = parseInt(m, 10)
+    const dayNum = parseInt(d, 10)
+    if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+      return `${y}-${m}-${d}`
+    }
+  }
+
+  // 5. Caso ainda reste algo identificável como número de 8 dígitos dentro de uma string mais longa
+  const matchAnyDate = str.match(/\b(\d{4})(\d{2})(\d{2})\b/)
+  if (matchAnyDate) {
+    const [, y, m, d] = matchAnyDate
+    const yearNum = parseInt(y, 10)
+    const monthNum = parseInt(m, 10)
+    const dayNum = parseInt(d, 10)
+    if (
+      yearNum >= 1990 &&
+      yearNum <= 2100 &&
+      monthNum >= 1 &&
+      monthNum <= 12 &&
+      dayNum >= 1 &&
+      dayNum <= 31
+    ) {
+      return `${y}-${m}-${d}`
+    }
   }
 
   return null
@@ -154,19 +198,30 @@ export function parseOFX(content: string, defaultEntity: TransactionEntity = 'pj
     if (!block.trim()) continue
 
     // Extrair campos comuns
-    const trnTypeMatch = block.match(/<TRNTYPE>([^<\r\n]+)/i)
-    const dtPostedMatch = block.match(/<DTPOSTED>([^<\r\n]+)/i)
-    const trnAmtMatch = block.match(/<TRNAMT>([^<\r\n]+)/i)
-    const memoMatch = block.match(/<MEMO>([^<\r\n]+)/i)
-    const nameMatch = block.match(/<NAME>([^<\r\n]+)/i)
+    // Tags OFX podem ter fechamento opcional (ex: <DTPOSTED>20241225... ou <DTPOSTED>20241225...</DTPOSTED>)
+    // e podem vir na mesma linha de outra tag
+    const trnTypeMatch = block.match(/<TRNTYPE>\s*([^<\r\n]+)/i)
+    const dtPostedMatch = block.match(/<DTPOSTED>\s*([^<\r\n]+)/i)
+    const dtUserMatch = block.match(/<DTUSER>\s*([^<\r\n]+)/i)
+    const trnAmtMatch = block.match(/<TRNAMT>\s*([^<\r\n]+)/i)
+    const memoMatch = block.match(/<MEMO>\s*([^<\r\n]+)/i)
+    const nameMatch = block.match(/<NAME>\s*([^<\r\n]+)/i)
 
-    const rawDate = dtPostedMatch ? dtPostedMatch[1].trim() : ''
+    // Se <DTPOSTED> não vier, tenta <DTUSER> como fallback da transação no OFX
+    const rawDate =
+      (dtPostedMatch ? dtPostedMatch[1].trim() : '') || (dtUserMatch ? dtUserMatch[1].trim() : '')
     const rawAmt = trnAmtMatch ? trnAmtMatch[1].trim() : ''
     const memo = memoMatch ? memoMatch[1].trim() : ''
     const name = nameMatch ? nameMatch[1].trim() : ''
 
     const description = (name || memo || 'Lançamento bancário').replace(/\s+/g, ' ').trim()
-    const isoDate = parseDateToISO(rawDate) || new Date().toISOString().slice(0, 10)
+    const isoDate = parseDateToISO(rawDate) || ''
+
+    if (!isoDate) {
+      warnings.push(
+        `Aviso: transação "${description.slice(0, 30)}" sem data válida no extrato OFX (campo original: "${rawDate}").`,
+      )
+    }
 
     const parsedNum = parseBRLNumber(rawAmt)
     if (!parsedNum || parsedNum.amount === 0) continue
@@ -185,7 +240,7 @@ export function parseOFX(content: string, defaultEntity: TransactionEntity = 'pj
     count++
     transactions.push({
       tempId: `ofx-${count}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      date: isoDate,
+      date: isoDate || new Date().toISOString().slice(0, 10),
       description,
       amount: Math.round(parsedNum.amount * 100) / 100,
       type: isIncome ? 'income' : 'expense',
