@@ -81,11 +81,18 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
     throw new Error('Usuário não autenticado.')
   }
 
+  if (!data.date || !data.date.trim()) {
+    throw new Error('A data da transação é obrigatória.')
+  }
+
   // Format date correctly for PocketBase:
   // Se for YYYY-MM-DD, grava 'YYYY-MM-DD 12:00:00.000Z' (meio-dia UTC) para evitar que
   // qualquer fuso horário (ex: UTC-3 brasileiro) recue o dia ao exibir
-  let formattedDate = data.date
-  if (/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
+  let formattedDate = data.date.trim()
+  const isoDayMatch = formattedDate.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (isoDayMatch) {
+    formattedDate = `${isoDayMatch[1]} 12:00:00.000Z`
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
     formattedDate = `${formattedDate} 12:00:00.000Z`
   }
 
@@ -249,12 +256,19 @@ export function formatBRL(value: number): string {
 export function formatDatePtBR(dateString: string): string {
   if (!dateString) return ''
   try {
-    // Se a string começar com YYYY-MM-DD, extrai diretamente os componentes da data
-    // Isso evita qualquer distorção de fuso horário do navegador ao formatar
+    // Se a string começar com YYYY-MM-DD (ex: "2024-12-25" ou "2024-12-25 12:00:00.000Z" ou "2024-12-25T12:00:00.000Z"),
+    // extrai diretamente os componentes numéricos sem instanciar Date() com timezone do navegador.
+    // Isso é imune a atrasos de timezone (UTC-3 recuando 2024-12-25 00:00:00 para 2024-12-24).
     const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/)
     if (match) {
       const [, y, m, d] = match
       return `${d}/${m}/${y}`
+    }
+
+    // Se for formato brasileiro DD/MM/YYYY
+    const matchBr = dateString.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
+    if (matchBr) {
+      return dateString.slice(0, 10)
     }
 
     const d = new Date(dateString)

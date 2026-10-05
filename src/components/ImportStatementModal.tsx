@@ -245,6 +245,7 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
       const rawAmt = row[colMap.amountCol]
 
       const isoDate = parseDateToISO(rawDate)
+      // Se não tiver data válida no remapeamento manual, pula a linha (cabeçalho repetido ou rodapé)
       if (!isoDate) return
 
       // Trata valor
@@ -279,6 +280,8 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
         servico: globalEntity === 'pj' ? globalService || '' : '',
         entity: globalEntity,
         selected: true,
+        hasValidDate: true,
+        rawDate,
       })
     })
 
@@ -417,10 +420,35 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
     )
   }
 
+  // Validação de itens antes de avançar para a Etapa 3 ou importar:
+  // NUNCA permitir lançamentos selecionados sem data real do extrato ou com data inválida
+  const invalidDateSelectedItems = useMemo(() => {
+    return selectedItems.filter((i) => !i.date || !i.date.trim() || !parseDateToISO(i.date))
+  }, [selectedItems])
+
+  const handleAdvanceToStep3 = () => {
+    if (invalidDateSelectedItems.length > 0) {
+      setErrorMsg(
+        `Existem ${invalidDateSelectedItems.length} lançamento(s) selecionado(s) com data ausente ou inválida. Ajuste a data no campo de cada linha ou desmarque-o(s) antes de avançar.`,
+      )
+      return
+    }
+    setErrorMsg(null)
+    setStep(3)
+  }
+
   // Disparo da importação (Etapa 3)
   const handleExecuteImport = async () => {
     if (selectedItems.length === 0) {
       setErrorMsg('Selecione pelo menos um lançamento para importar.')
+      return
+    }
+
+    if (invalidDateSelectedItems.length > 0) {
+      setErrorMsg(
+        `Não é possível salvar: existem ${invalidDateSelectedItems.length} lançamento(s) selecionado(s) com data inválida ou ausente. Volte para a revisão e defina as datas.`,
+      )
+      setStep(2)
       return
     }
 
@@ -442,6 +470,14 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
               ? 'Receitas totais Cirurgias Hospitais Externos particular'
               : 'Outros Variaveis')
 
+        // Garante que a data está em formato ISO YYYY-MM-DD
+        const validIsoDate = parseDateToISO(item.date) || item.date
+        if (!validIsoDate) {
+          throw new Error(
+            `O lançamento "${item.description.slice(0, 30)}" não possui data válida para gravação.`,
+          )
+        }
+
         await createTransactionFn({
           type: item.type,
           entity: item.entity,
@@ -449,7 +485,7 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
           description: item.description.trim() || 'Lançamento bancário',
           category: finalCategory,
           servico: item.entity === 'pj' ? item.servico?.trim() || '' : '',
-          date: item.date,
+          date: validIsoDate,
         })
 
         count++
@@ -913,6 +949,35 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
                     </div>
                   </div>
 
+                  {/* Alerta de datas ausentes/inválidas */}
+                  {invalidDateSelectedItems.length > 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-red-500/40 bg-red-500/15 p-3 text-xs text-red-200">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                        <span>
+                          Atenção: <strong>{invalidDateSelectedItems.length}</strong> lançamento(s)
+                          selecionado(s) está(ão) sem data válida do extrato. Ajuste o campo de data
+                          ou desmarque a linha antes de avançar.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Alerta de avisos gerais de parsing (ex: OFX com campos incompletos) */}
+                  {parseWarnings.length > 0 && invalidDateSelectedItems.length === 0 && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 space-y-1">
+                      <div className="flex items-center gap-2 font-bold text-amber-400">
+                        <Info className="h-4 w-4 shrink-0" />
+                        <span>Avisos na leitura do extrato:</span>
+                      </div>
+                      <div className="max-h-24 overflow-y-auto pl-6 custom-scrollbar text-[11px] text-amber-200/80 space-y-0.5">
+                        {parseWarnings.map((w, idx) => (
+                          <p key={idx}>• {w}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Alerta de duplicatas detectadas */}
                   {duplicatesCount > 0 && (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
@@ -1017,14 +1082,28 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
                                 </button>
 
                                 {/* Data editável */}
-                                <input
-                                  type="date"
-                                  value={item.date}
-                                  onChange={(e) =>
-                                    updateItemField(item.tempId, 'date', e.target.value)
-                                  }
-                                  className="h-8 rounded-lg border border-white/10 bg-[#0D0D11] px-2 text-xs text-white [color-scheme:dark] shrink-0"
-                                />
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <input
+                                    type="date"
+                                    value={item.date}
+                                    onChange={(e) =>
+                                      updateItemField(item.tempId, 'date', e.target.value)
+                                    }
+                                    className={`h-8 rounded-lg border px-2 text-xs text-white [color-scheme:dark] transition-colors ${
+                                      !item.date || !parseDateToISO(item.date)
+                                        ? 'border-red-500 bg-red-500/10 text-red-200 ring-2 ring-red-500/50'
+                                        : 'border-white/10 bg-[#0D0D11]'
+                                    }`}
+                                  />
+                                  {(!item.date || !parseDateToISO(item.date)) && (
+                                    <span
+                                      title="Data ausente no extrato. Selecione a data correta."
+                                      className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-bold text-red-400"
+                                    >
+                                      Sem data!
+                                    </span>
+                                  )}
+                                </div>
 
                                 {/* Toggle PF / PJ individual */}
                                 <button
@@ -1281,7 +1360,7 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
             {step === 2 && !needsRemapping && (
               <Button
                 type="button"
-                onClick={() => setStep(3)}
+                onClick={handleAdvanceToStep3}
                 disabled={selectedItems.length === 0}
                 className="rounded-xl bg-[#E10613] px-5 text-xs font-bold text-white shadow-[0_0_20px_rgba(225,6,19,0.3)] hover:bg-[#C00510]"
               >

@@ -13,6 +13,8 @@ export interface ParsedStatementTransaction {
   isDuplicate?: boolean
   duplicateReason?: string
   rawLine?: string
+  hasValidDate?: boolean
+  rawDate?: string
 }
 
 export interface ParseResult {
@@ -95,22 +97,23 @@ export function parseBRLNumber(rawVal: string): { amount: number; isNegative: bo
 
 /**
  * Normaliza qualquer data para YYYY-MM-DD
- * Aceita: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, YYYYMMDD
+ * Suporta OFX, brasileiro DD/MM/AAAA, ISO AAAA-MM-DD e variantes compactas
  */
 export function parseDateToISO(rawDate: string): string | null {
   if (!rawDate) return null
-  // Remove espaços e tags/colchetes acidentais no início ou fim
   let str = rawDate.trim()
 
-  // Se vier com quebras de linha ou caracteres de fechamento SGML
-  str = str.replace(/<.*$/, '').trim()
+  // Remove tags SGML/XML de fechamento ou abertura remanescentes
+  str = str
+    .replace(/<[^>]*>/g, '')
+    .replace(/<.*$/, '')
+    .trim()
 
-  // 1. OFX com timestamp e timezone (ex: 20241225120000 ou com fuso horario entre colchetes)
-  // Ou simples YYYYMMDD (ex: 20241225)
-  // Sempre extrair dia, mês e ano diretamente da string sem passar por Date() para evitar deslocamento de fuso!
-  const matchOfx = str.match(/(\d{4})(\d{2})(\d{2})/)
-  if (matchOfx && !str.includes('/') && !str.includes('-')) {
-    const [, y, m, d] = matchOfx
+  // 1. Formato OFX ou ISO compacto que começa com YYYYMMDD:
+  // Exemplo: 20241225120000.000 ou 20241225
+  const matchOfxStart = str.match(/^(\d{4})(\d{2})(\d{2})/)
+  if (matchOfxStart) {
+    const [, y, m, d] = matchOfxStart
     const yearNum = parseInt(y, 10)
     const monthNum = parseInt(m, 10)
     const dayNum = parseInt(d, 10)
@@ -126,42 +129,87 @@ export function parseDateToISO(rawDate: string): string | null {
     }
   }
 
-  // 2. Formato brasileiro: DD/MM/YYYY ou DD-MM-YYYY (comum em CSVs do BB, Itaú, Bradesco, CEF, Nubank)
-  // Também suporta com hora anexada (ex: "25/12/2024 14:30:00" ou "25/12/2024")
+  // 2. Formato brasileiro: DD/MM/YYYY ou DD-MM-YYYY (com ou sem hora anexada)
   const matchBr = str.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/)
   if (matchBr) {
     const d = matchBr[1].padStart(2, '0')
     const m = matchBr[2].padStart(2, '0')
     const y = matchBr[3]
-    return `${y}-${m}-${d}`
+    const yearNum = parseInt(y, 10)
+    const monthNum = parseInt(m, 10)
+    const dayNum = parseInt(d, 10)
+    if (
+      yearNum >= 1990 &&
+      yearNum <= 2100 &&
+      monthNum >= 1 &&
+      monthNum <= 12 &&
+      dayNum >= 1 &&
+      dayNum <= 31
+    ) {
+      return `${y}-${m}-${d}`
+    }
   }
 
-  // 3. Formato ISO: YYYY-MM-DD ou YYYY/MM/DD (com ou sem hora ISO: 2024-12-25T12:00:00)
+  // 3. Formato brasileiro curto: DD/MM/YY (ex: 25/12/24)
+  const matchBrShort = str.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2})\b/)
+  if (matchBrShort) {
+    const d = matchBrShort[1].padStart(2, '0')
+    const m = matchBrShort[2].padStart(2, '0')
+    const shortYear = parseInt(matchBrShort[3], 10)
+    const fullYear = shortYear >= 70 ? 1900 + shortYear : 2000 + shortYear
+    const monthNum = parseInt(m, 10)
+    const dayNum = parseInt(d, 10)
+    if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+      return `${fullYear}-${m}-${d}`
+    }
+  }
+
+  // 4. Formato ISO: YYYY-MM-DD ou YYYY/MM/DD (com ou sem hora ISO: 2024-12-25T12:00:00)
   const matchIso = str.match(/^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})/)
   if (matchIso) {
     const y = matchIso[1]
     const m = matchIso[2].padStart(2, '0')
     const d = matchIso[3].padStart(2, '0')
-    return `${y}-${m}-${d}`
+    const yearNum = parseInt(y, 10)
+    const monthNum = parseInt(m, 10)
+    const dayNum = parseInt(d, 10)
+    if (
+      yearNum >= 1990 &&
+      yearNum <= 2100 &&
+      monthNum >= 1 &&
+      monthNum <= 12 &&
+      dayNum >= 1 &&
+      dayNum <= 31
+    ) {
+      return `${y}-${m}-${d}`
+    }
   }
 
-  // 4. Formato compacto de CSV: DDMMYYYY (ex: 25122024)
+  // 5. Formato compacto de CSV: DDMMYYYY (ex: 25122024)
   const matchCompactBr = str.match(/^(\d{2})(\d{2})(\d{4})$/)
   if (matchCompactBr) {
     const d = matchCompactBr[1]
     const m = matchCompactBr[2]
     const y = matchCompactBr[3]
+    const yearNum = parseInt(y, 10)
     const monthNum = parseInt(m, 10)
     const dayNum = parseInt(d, 10)
-    if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+    if (
+      yearNum >= 1990 &&
+      yearNum <= 2100 &&
+      monthNum >= 1 &&
+      monthNum <= 12 &&
+      dayNum >= 1 &&
+      dayNum <= 31
+    ) {
       return `${y}-${m}-${d}`
     }
   }
 
-  // 5. Caso ainda reste algo identificável como número de 8 dígitos dentro de uma string mais longa
-  const matchAnyDate = str.match(/\b(\d{4})(\d{2})(\d{2})\b/)
-  if (matchAnyDate) {
-    const [, y, m, d] = matchAnyDate
+  // 6. Busca qualquer sequência de data válida YYYYMMDD ou YYYY-MM-DD contida na string
+  const matchContainedOfx = str.match(/(\d{4})(\d{2})(\d{2})/)
+  if (matchContainedOfx) {
+    const [, y, m, d] = matchContainedOfx
     const yearNum = parseInt(y, 10)
     const monthNum = parseInt(m, 10)
     const dayNum = parseInt(d, 10)
@@ -187,47 +235,65 @@ export function parseOFX(content: string, defaultEntity: TransactionEntity = 'pj
   const transactions: ParsedStatementTransaction[] = []
   const warnings: string[] = []
 
-  // Extrair blocos <STMTTRN>...</STMTTRN> ou STMTTRN sem tag de fechamento (formato clássico OFX SGML)
-  // Alguns arquivos usam tags em maiúsculas ou minúsculas
-  const trnRegex = /<STMTTRN>([\s\S]*?)(?=<\/STMTTRN>|<STMTTRN>|$)/gi
+  // Extrai blocos <STMTTRN>...</STMTTRN> ou STMTTRN sem tag de fechamento (formato clássico OFX SGML).
+  // Alguns arquivos usam tags em maiúsculas ou minúsculas e podem vir em uma única linha ou com tags anexadas.
+  const trnRegex =
+    /<STMTTRN>([\s\S]*?)(?=<\/STMTTRN>|<STMTTRN>|<\/BANKTRANLIST>|<\/CCSTMTTRNRS>|<\/STMTRS>|$)/gi
   let match: RegExpExecArray | null
 
+  // Helper interno para extrair o valor de uma tag OFX, considerando:
+  // 1) Tag com fechamento explícito: <TAG>conteúdo</TAG>
+  // 2) Tag SGML sem fechamento na mesma linha antes de outra tag: <TAG>conteúdo<OUTRA>
+  // 3) Tag SGML até o fim da linha: <TAG>conteúdo\n
+  const extractOFXTagValue = (block: string, tagName: string): string => {
+    // 1. Tenta formato XML com fechamento explícito <TAG>conteudo</TAG>
+    const closedRegex = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 'i')
+    const closedMatch = block.match(closedRegex)
+    if (closedMatch && closedMatch[1] !== undefined) {
+      return closedMatch[1].trim()
+    }
+
+    // 2. Tenta formato SGML (sem fechamento), capturando até a próxima tag '<' ou quebra de linha
+    const openRegex = new RegExp(`<${tagName}>\\s*([^<\\r\\n]*)`, 'i')
+    const openMatch = block.match(openRegex)
+    if (openMatch && openMatch[1] !== undefined) {
+      return openMatch[1].trim()
+    }
+
+    return ''
+  }
+
   let count = 0
+  let missingDatesCount = 0
+
   while ((match = trnRegex.exec(content)) !== null) {
     const block = match[1]
     if (!block.trim()) continue
 
-    // Extrair campos comuns
-    // Tags OFX podem ter fechamento opcional (ex: <DTPOSTED>20241225... ou <DTPOSTED>20241225...</DTPOSTED>)
-    // e podem vir na mesma linha de outra tag
-    const trnTypeMatch = block.match(/<TRNTYPE>\s*([^<\r\n]+)/i)
-    const dtPostedMatch = block.match(/<DTPOSTED>\s*([^<\r\n]+)/i)
-    const dtUserMatch = block.match(/<DTUSER>\s*([^<\r\n]+)/i)
-    const trnAmtMatch = block.match(/<TRNAMT>\s*([^<\r\n]+)/i)
-    const memoMatch = block.match(/<MEMO>\s*([^<\r\n]+)/i)
-    const nameMatch = block.match(/<NAME>\s*([^<\r\n]+)/i)
+    // Extração robusta de campos do bloco STMTTRN
+    const trnType = extractOFXTagValue(block, 'TRNTYPE').toUpperCase()
+    const dtPostedRaw = extractOFXTagValue(block, 'DTPOSTED')
+    const dtUserRaw = extractOFXTagValue(block, 'DTUSER')
+    const trnAmtRaw = extractOFXTagValue(block, 'TRNAMT')
+    const memo = extractOFXTagValue(block, 'MEMO')
+    const name = extractOFXTagValue(block, 'NAME')
 
-    // Se <DTPOSTED> não vier, tenta <DTUSER> como fallback da transação no OFX
-    const rawDate =
-      (dtPostedMatch ? dtPostedMatch[1].trim() : '') || (dtUserMatch ? dtUserMatch[1].trim() : '')
-    const rawAmt = trnAmtMatch ? trnAmtMatch[1].trim() : ''
-    const memo = memoMatch ? memoMatch[1].trim() : ''
-    const name = nameMatch ? nameMatch[1].trim() : ''
-
+    // Ordem de preferência para a data real: <DTPOSTED> e depois <DTUSER>
+    const rawDate = dtPostedRaw || dtUserRaw || ''
     const description = (name || memo || 'Lançamento bancário').replace(/\s+/g, ' ').trim()
-    const isoDate = parseDateToISO(rawDate) || ''
+    const isoDate = parseDateToISO(rawDate)
+
+    const parsedNum = parseBRLNumber(trnAmtRaw)
+    if (!parsedNum || parsedNum.amount === 0) continue
 
     if (!isoDate) {
+      missingDatesCount++
       warnings.push(
-        `Aviso: transação "${description.slice(0, 30)}" sem data válida no extrato OFX (campo original: "${rawDate}").`,
+        `Aviso: lançamento "${description.slice(0, 35)}" não possui data válida no extrato OFX (campo original: "${rawDate || 'vazio'}"). Por favor, informe a data na revisão antes de salvar.`,
       )
     }
 
-    const parsedNum = parseBRLNumber(rawAmt)
-    if (!parsedNum || parsedNum.amount === 0) continue
-
-    // TRNTYPE também ajuda: CREDIT = income, DEBIT = expense
-    const trnType = trnTypeMatch ? trnTypeMatch[1].trim().toUpperCase() : ''
+    // Identificação de receita vs despesa
     let isIncome = false
     if (trnType === 'CREDIT') {
       isIncome = true
@@ -240,15 +306,23 @@ export function parseOFX(content: string, defaultEntity: TransactionEntity = 'pj
     count++
     transactions.push({
       tempId: `ofx-${count}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      date: isoDate || new Date().toISOString().slice(0, 10),
+      date: isoDate || '', // NUNCA usar silenciosamente a data de hoje!
       description,
       amount: Math.round(parsedNum.amount * 100) / 100,
       type: isIncome ? 'income' : 'expense',
       category: '',
       entity: defaultEntity,
       selected: true,
+      hasValidDate: Boolean(isoDate),
+      rawDate,
       rawLine: block.slice(0, 100),
     })
+  }
+
+  if (missingDatesCount > 0) {
+    warnings.unshift(
+      `Atenção: ${missingDatesCount} lançamento(s) do extrato não possuem data válida identificada. Revise as datas antes de salvar.`,
+    )
   }
 
   if (transactions.length === 0) {
@@ -612,6 +686,8 @@ export function parseCSV(content: string, defaultEntity: TransactionEntity = 'pj
       category: '',
       entity: defaultEntity,
       selected: true,
+      hasValidDate: true,
+      rawDate,
       rawLine: row.join('; '),
     })
   }
