@@ -1,5 +1,13 @@
 import React from 'react'
-import { ArrowDownRight, ArrowUpRight, Calendar, DollarSign, Tag, Trash2 } from 'lucide-react'
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Briefcase,
+  Calendar,
+  DollarSign,
+  Tag,
+  Trash2,
+} from 'lucide-react'
 import type { Transaction } from '@/services/transactions'
 import { formatBRL, formatDatePtBR } from '@/services/transactions'
 
@@ -107,18 +115,30 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                             [{t.entity === 'pf' ? 'PF' : 'PJ'}]
                           </span>
                         )}
-                        {t.category} • {formatDatePtBR(t.date)}
+                        {t.category}
+                        {t.servico && ` • ${t.servico}`} • {formatDatePtBR(t.date)}
                       </p>
                     </div>
                   </div>
                 </td>
 
-                {/* Categoria */}
+                {/* Categoria e Serviço */}
                 <td className="hidden px-4 py-3.5 sm:table-cell">
-                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-white/70">
-                    <Tag className="h-3 w-3 text-white/35" />
-                    {t.category}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-white/70">
+                      <Tag className="h-3 w-3 text-white/35" />
+                      {t.category}
+                    </span>
+                    {t.servico && (
+                      <span
+                        title={`Serviço / Centro de custo: ${t.servico}`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#E10613]/30 bg-[#E10613]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#FCA5A5]"
+                      >
+                        <Briefcase className="h-2.5 w-2.5 text-[#E10613]" />
+                        {t.servico}
+                      </span>
+                    )}
+                  </div>
                 </td>
 
                 {/* Data */}

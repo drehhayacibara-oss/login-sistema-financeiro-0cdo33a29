@@ -12,6 +12,7 @@ export interface Transaction {
   amount: number
   description: string
   category: string
+  servico?: string
   date: string
   created: string
   updated: string
@@ -23,6 +24,7 @@ export interface CreateTransactionDTO {
   amount: number
   description: string
   category: string
+  servico?: string
   date: string
 }
 
@@ -59,6 +61,7 @@ function mapRecordToTransaction(record: RecordModel): Transaction {
     amount: Number(record.amount) || 0,
     description: (record.description as string) || '',
     category: (record.category as string) || 'Geral',
+    servico: (record.servico as string) || undefined,
     date: (record.date as string) || record.created,
     created: record.created,
     updated: record.updated,
@@ -91,6 +94,7 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
     amount: data.amount,
     description: data.description.trim(),
     category: data.category.trim(),
+    servico: data.servico?.trim() || '',
     date: formattedDate,
   })
 

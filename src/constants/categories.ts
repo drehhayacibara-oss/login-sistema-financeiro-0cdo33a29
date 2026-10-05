@@ -74,6 +74,19 @@ export const CATEGORIES_PJ: { income: string[]; expense: string[] } = {
   ],
 } as const
 
+// Lista oficial e padronizada de Serviços / Centros de Custo PJ do Rubra
+// Exatamente nesta grafia e ordem, serve para receitas e despesas:
+export const SERVICES_PJ = [
+  'CENTRO CIRURGICO',
+  'CIRURGIAS EXTERNAS',
+  'LABORATORIO',
+  'LITOTRIPSIA',
+  'CONSULTORIO',
+  'CLINICA GERAL',
+] as const
+
+export type ServicePJ = (typeof SERVICES_PJ)[number]
+
 export const CATEGORIES_PF: { income: string[]; expense: string[] } = {
   income: ['APOSENTADORIA INSTITUTO', 'APOSENTADORIA INSS', 'OUTRAS RECEITAS', 'PROLABORE'],
   expense: [

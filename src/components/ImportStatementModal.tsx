@@ -31,7 +31,8 @@ import {
   User,
   X,
 } from 'lucide-react'
-import { CATEGORIES_PF, CATEGORIES_PJ } from '@/constants/categories'
+import { CATEGORIES_PF, CATEGORIES_PJ, SERVICES_PJ } from '@/constants/categories'
+import { Briefcase } from 'lucide-react'
 import {
   type ParsedStatementTransaction,
   markPossibleDuplicates,
@@ -76,6 +77,8 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
 
   // Global context selection for batch import (default PJ)
   const [globalEntity, setGlobalEntity] = useState<TransactionEntity>('pj')
+  // Global service selection for batch apply
+  const [globalService, setGlobalService] = useState<string>('')
 
   // Parsed items
   const [parsedItems, setParsedItems] = useState<ParsedStatementTransaction[]>([])
@@ -108,6 +111,7 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
     setRawFileContent('')
     setIsDragOver(false)
     setGlobalEntity('pj')
+    setGlobalService('')
     setParsedItems([])
     setParseWarnings([])
     setDetectedFormat('')
@@ -272,6 +276,7 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
         amount: Math.round(num * 100) / 100,
         type: isIncome ? 'income' : 'expense',
         category: '',
+        servico: globalService || '',
         entity: globalEntity,
         selected: true,
       })
@@ -347,6 +352,21 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
           ...item,
           entity: newEntity,
           category: keepCat,
+          servico: newEntity === 'pf' ? '' : item.servico,
+        }
+      }),
+    )
+  }
+
+  // Aplica serviço em lote para todos os itens selecionados (ou todos da PJ)
+  const handleApplyGlobalService = (newService: string) => {
+    setGlobalService(newService)
+    setParsedItems((prev) =>
+      prev.map((item) => {
+        if (item.entity !== 'pj') return item
+        return {
+          ...item,
+          servico: newService,
         }
       }),
     )
@@ -428,6 +448,7 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
           amount: item.amount,
           description: item.description.trim() || 'Lançamento bancário',
           category: finalCategory,
+          servico: item.entity === 'pj' ? item.servico?.trim() || '' : '',
           date: item.date,
         })
 
@@ -836,36 +857,58 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
                       )}
                     </div>
 
-                    {/* Seletor Global PF/PJ para todos os itens de uma vez */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-white/50 font-semibold">
-                        Aplicar em todas:
-                      </span>
-                      <div className="flex items-center rounded-xl border border-white/10 bg-[#0D0D11] p-0.5 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => handleApplyGlobalEntity('pj')}
-                          className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                            globalEntity === 'pj'
-                              ? 'bg-[#E10613]/25 text-white border border-[#E10613]/50'
-                              : 'text-white/40 hover:text-white'
-                          }`}
+                    {/* Seletores Globais em Lote: PF/PJ e Serviço */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-white/50 font-semibold">
+                          Contexto em lote:
+                        </span>
+                        <div className="flex items-center rounded-xl border border-white/10 bg-[#0D0D11] p-0.5 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => handleApplyGlobalEntity('pj')}
+                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                              globalEntity === 'pj'
+                                ? 'bg-[#E10613]/25 text-white border border-[#E10613]/50'
+                                : 'text-white/40 hover:text-white'
+                            }`}
+                          >
+                            <Building2 className="h-3 w-3" />
+                            PJ
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApplyGlobalEntity('pf')}
+                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                              globalEntity === 'pf'
+                                ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50'
+                                : 'text-white/40 hover:text-white'
+                            }`}
+                          >
+                            <User className="h-3 w-3" />
+                            PF
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Seletor em lote de Serviço para PJ */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-white/50 font-semibold flex items-center gap-1">
+                          <Briefcase className="h-3 w-3 text-[#E10613]" />
+                          Serviço em lote:
+                        </span>
+                        <select
+                          value={globalService}
+                          onChange={(e) => handleApplyGlobalService(e.target.value)}
+                          className="h-7 rounded-lg border border-white/10 bg-[#0D0D11] px-2 text-[11px] text-white"
                         >
-                          <Building2 className="h-3 w-3" />
-                          PJ
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleApplyGlobalEntity('pf')}
-                          className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                            globalEntity === 'pf'
-                              ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50'
-                              : 'text-white/40 hover:text-white'
-                          }`}
-                        >
-                          <User className="h-3 w-3" />
-                          PF
-                        </button>
+                          <option value="">(Sem serviço / Definir por linha)</option>
+                          {SERVICES_PJ.map((srv) => (
+                            <option key={srv} value={srv}>
+                              {srv}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   </div>
@@ -1015,10 +1058,10 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
                               </div>
                             </div>
 
-                            {/* Linha secundária: Descrição editável e Seleção de Categoria */}
+                            {/* Linha secundária: Descrição editável, Categoria e Serviço por linha */}
                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pl-7 sm:pl-7">
                               {/* Descrição */}
-                              <div className="sm:col-span-7">
+                              <div className="sm:col-span-5">
                                 <Input
                                   type="text"
                                   value={item.description}
@@ -1031,7 +1074,7 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
                               </div>
 
                               {/* Categoria */}
-                              <div className="sm:col-span-5 relative">
+                              <div className="sm:col-span-4 relative">
                                 <select
                                   value={item.category}
                                   onChange={(e) =>
@@ -1049,6 +1092,31 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
                                   {categoriesList.map((cat) => (
                                     <option key={cat} value={cat}>
                                       {cat}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Serviço / Centro de Custo por linha */}
+                              <div className="sm:col-span-3 relative">
+                                <select
+                                  value={item.servico || ''}
+                                  disabled={item.entity !== 'pj'}
+                                  onChange={(e) =>
+                                    updateItemField(item.tempId, 'servico', e.target.value)
+                                  }
+                                  className={`w-full h-8 rounded-lg border px-2 text-[11px] transition-colors ${
+                                    item.entity !== 'pj'
+                                      ? 'border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed'
+                                      : item.servico
+                                        ? 'border-[#E10613]/60 bg-[#0D0D11] text-[#FCA5A5] font-semibold'
+                                        : 'border-white/10 bg-[#0D0D11] text-white/40'
+                                  }`}
+                                >
+                                  <option value="">(Sem serviço)</option>
+                                  {SERVICES_PJ.map((srv) => (
+                                    <option key={srv} value={srv}>
+                                      {srv}
                                     </option>
                                   ))}
                                 </select>

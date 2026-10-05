@@ -7,6 +7,7 @@ export interface ParsedStatementTransaction {
   amount: number // Positive number
   type: TransactionType
   category: string
+  servico?: string
   entity: TransactionEntity
   selected: boolean
   isDuplicate?: boolean

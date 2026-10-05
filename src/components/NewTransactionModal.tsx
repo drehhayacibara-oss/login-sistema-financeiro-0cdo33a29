@@ -33,7 +33,8 @@ interface NewTransactionModalProps {
   onSubmit: (data: CreateTransactionDTO) => Promise<void>
 }
 
-import { CATEGORIES_PF, CATEGORIES_PJ } from '@/constants/categories'
+import { CATEGORIES_PF, CATEGORIES_PJ, SERVICES_PJ } from '@/constants/categories'
+import { Briefcase } from 'lucide-react'
 
 export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   open,
@@ -45,6 +46,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [amount, setAmount] = useState<string>('')
   const [description, setDescription] = useState<string>('')
   const [category, setCategory] = useState<string>('')
+  const [servico, setServico] = useState<string>('')
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10))
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,6 +59,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     setAmount('')
     setDescription('')
     setCategory('')
+    setServico('')
     setDate(new Date().toISOString().slice(0, 10))
     setError(null)
   }
@@ -104,6 +107,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         amount: Math.round(numericAmount * 100) / 100,
         description: description.trim(),
         category: category.trim(),
+        servico: entity === 'pj' ? servico.trim() : '',
         date,
       })
       resetForm()
@@ -317,6 +321,72 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Serviço / Centro de Custo (PJ) */}
+          {entity === 'pj' && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="tx-servico"
+                  className="text-xs font-semibold text-white/80 flex items-center gap-1.5"
+                >
+                  <Briefcase className="h-3.5 w-3.5 text-[#E10613]" />
+                  Serviço / Centro de Custo{' '}
+                  <span className="text-white/40 font-normal">(Opcional)</span>
+                </Label>
+                {servico && (
+                  <button
+                    type="button"
+                    onClick={() => setServico('')}
+                    className="text-[10px] text-white/40 hover:text-[#E10613] transition-colors"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+
+              <div className="relative">
+                <Input
+                  id="tx-servico"
+                  type="text"
+                  placeholder="Selecione abaixo ou digite..."
+                  value={servico}
+                  onChange={(e) => setServico(e.target.value)}
+                  maxLength={60}
+                  className="h-10 rounded-xl border-white/10 bg-[#08080B] text-xs text-white placeholder:text-white/25 focus-visible:ring-[#E10613]"
+                />
+              </div>
+
+              {/* Botões rápidos com os 6 serviços fixos + Sem serviço */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setServico('')}
+                  className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                    !servico
+                      ? 'border-white/30 bg-white/10 text-white'
+                      : 'border-white/10 bg-white/[0.02] text-white/50 hover:bg-white/[0.06] hover:text-white'
+                  }`}
+                >
+                  Sem serviço
+                </button>
+                {SERVICES_PJ.map((srv) => (
+                  <button
+                    key={srv}
+                    type="button"
+                    onClick={() => setServico(srv)}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors text-left ${
+                      servico === srv
+                        ? 'border-[#E10613]/70 bg-[#E10613]/25 font-bold text-white shadow-[0_0_10px_rgba(225,6,19,0.25)]'
+                        : 'border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.08] hover:text-white hover:border-white/20'
+                    }`}
+                  >
+                    {srv}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Data */}
           <div>

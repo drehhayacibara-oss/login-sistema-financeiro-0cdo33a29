@@ -54,6 +54,7 @@ type SidebarProps = {
   onFeatureClick: (feature: string) => void
   onNewTransaction: () => void
   onImportStatement: () => void
+  onNavigateDRE: () => void
 }
 
 type NavigationItem = {
@@ -62,6 +63,7 @@ type NavigationItem = {
   icon: LucideIcon
   active?: boolean
   badge?: string
+  route?: string
 }
 
 const navigationByRole: Record<UserRole, NavigationItem[]> = {
@@ -73,14 +75,15 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       active: true,
     },
     {
+      label: 'Relatório DRE',
+      description: 'Resultado PJ & Serviços',
+      icon: BarChart3,
+      route: '/dre',
+    },
+    {
       label: 'Movimentações',
       description: 'Extrato de lançamentos',
       icon: ReceiptText,
-    },
-    {
-      label: 'Relatórios',
-      description: 'Evolução e categorias',
-      icon: BarChart3,
     },
     {
       label: 'Contas & Bancos',
@@ -97,14 +100,15 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       active: true,
     },
     {
+      label: 'Relatório DRE',
+      description: 'Resultado PJ & Serviços',
+      icon: BarChart3,
+      route: '/dre',
+    },
+    {
       label: 'Movimentações',
       description: 'Extrato de lançamentos',
       icon: ReceiptText,
-    },
-    {
-      label: 'Relatórios',
-      description: 'Análises e gráficos',
-      icon: BarChart3,
     },
     {
       label: 'Caixa diário',
@@ -119,6 +123,12 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       description: 'Painel financeiro',
       icon: LayoutDashboard,
       active: true,
+    },
+    {
+      label: 'Relatório DRE',
+      description: 'Demonstrativo PJ',
+      icon: BarChart3,
+      route: '/dre',
     },
     {
       label: 'Movimentações',
@@ -147,6 +157,7 @@ function Sidebar({
   onFeatureClick,
   onNewTransaction,
   onImportStatement,
+  onNavigateDRE,
 }: SidebarProps) {
   return (
     <aside
@@ -215,25 +226,49 @@ function Sidebar({
         <nav className="space-y-1" aria-label="Navegação principal">
           {navigationByRole[role].map((item) => {
             const Icon = item.icon
+            const handleClick = () => {
+              if (mobile && onClose) onClose()
+              if (item.route === '/dre') {
+                onNavigateDRE()
+              } else if (item.active) {
+                if (onClose) onClose()
+              } else {
+                onFeatureClick(item.label)
+              }
+            }
+
             return (
               <button
                 key={item.label}
                 type="button"
                 aria-current={item.active ? 'page' : undefined}
-                onClick={item.active ? onClose : () => onFeatureClick(item.label)}
+                onClick={handleClick}
                 className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all ${
                   item.active
                     ? 'bg-[#E10613]/10 text-white shadow-[inset_3px_0_0_#E10613]'
-                    : 'text-white/50 hover:bg-white/[0.04] hover:text-white'
+                    : item.route === '/dre'
+                      ? 'text-white/80 hover:bg-white/[0.06] hover:text-white'
+                      : 'text-white/50 hover:bg-white/[0.04] hover:text-white'
                 }`}
               >
                 <Icon
                   className={`h-[18px] w-[18px] shrink-0 ${
-                    item.active ? 'text-[#E10613]' : 'text-white/35'
+                    item.active
+                      ? 'text-[#E10613]'
+                      : item.route === '/dre'
+                        ? 'text-[#E10613]'
+                        : 'text-white/35'
                   }`}
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">{item.label}</span>
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    {item.label}
+                    {item.route === '/dre' && (
+                      <span className="rounded-md border border-[#E10613]/40 bg-[#E10613]/15 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-[#FCA5A5]">
+                        PJ
+                      </span>
+                    )}
+                  </span>
                   <span className="mt-0.5 block truncate text-[11px] text-white/35">
                     {item.description}
                   </span>
@@ -508,6 +543,7 @@ export default function Dashboard() {
             onFeatureClick={showComingSoon}
             onNewTransaction={() => setIsNewTxModalOpen(true)}
             onImportStatement={() => setIsImportModalOpen(true)}
+            onNavigateDRE={() => navigate('/dre')}
           />
         </>
       )}
@@ -534,6 +570,7 @@ export default function Dashboard() {
           onFeatureClick={showComingSoon}
           onNewTransaction={() => setIsNewTxModalOpen(true)}
           onImportStatement={() => setIsImportModalOpen(true)}
+          onNavigateDRE={() => navigate('/dre')}
         />
 
         <div className="min-w-0 flex-1">

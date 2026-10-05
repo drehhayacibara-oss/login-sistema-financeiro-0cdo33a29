@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T19:32:20.364Z",
+  "generatedAt": "2026-10-05T13:16:27.682Z",
   "collections": [
     {
       "name": "users",
@@ -120,6 +120,12 @@
           "required": false,
           "system": false,
           "selectValues": ["pf", "pj"]
+        },
+        {
+          "name": "servico",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
