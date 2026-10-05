@@ -77,6 +77,11 @@ const DRERowItem: React.FC<DRERowItemProps> = ({ row, isExpense = false, indent 
             <span className="w-4 inline-block" />
           )}
           <span className="truncate text-white/80 font-medium">{row.category}</span>
+          {row.isLegacyOrUnmapped && (
+            <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[9px] text-amber-300 font-medium">
+              Histórico
+            </span>
+          )}
           {row.count > 1 && (
             <span className="rounded-full bg-white/5 px-1.5 py-0.2 text-[10px] text-white/35 font-mono">
               {row.count}x
@@ -411,10 +416,10 @@ export default function DREPage() {
           {/* Receita Bruta */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">
-              1. Receita Bruta PJ
+              1. Receita Bruta PJ (8 formas de entrada)
             </p>
             <p className="mt-2 text-2xl font-extrabold text-white">{formatBRL(dre.receitaBruta)}</p>
-            <p className="mt-1 text-xs text-white/40">Entradas operacionais do período</p>
+            <p className="mt-1 text-xs text-white/40">Entradas totais de caixa no período</p>
           </div>
 
           {/* Receita Líquida */}
@@ -426,7 +431,7 @@ export default function DREPage() {
               {formatBRL(dre.receitaLiquida)}
             </p>
             <p className="mt-1 text-xs text-white/40">
-              Menos deduções e ISS ({formatBRL(dre.deducoesReceita)})
+              Menos deduções de receita ({formatBRL(dre.deducoesReceita)})
             </p>
           </div>
 
@@ -441,7 +446,7 @@ export default function DREPage() {
               {formatBRL(dre.lucroBruto)}
             </p>
             <p className="mt-1 text-xs text-white/40">
-              Custos diretos: -{formatBRL(dre.custosServicos)}
+              Custos diretos (7 itens): -{formatBRL(dre.custosServicos)}
             </p>
           </div>
 
@@ -454,7 +459,7 @@ export default function DREPage() {
             }`}
           >
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/60">
-              9. Lucro Líquido do Período
+              Lucro Líquido do Período
             </p>
             <p
               className={`mt-2 text-2xl font-extrabold tracking-tight ${
@@ -711,7 +716,7 @@ export default function DREPage() {
                 <div className="flex items-center justify-between py-3 px-4 sm:px-6 bg-[#08080B]/80 font-bold text-xs sm:text-sm text-white border-b border-white/[0.06]">
                   <span className="flex items-center gap-2 text-white/90">
                     <span className="h-2 w-2 rounded-full bg-[#E10613]" />
-                    7. (–) RESULTADO FINANCEIRO (JUROS, ANTECIPAÇÃO & COMISSÕES)
+                    7. (–) RESULTADO FINANCEIRO (JUROS, TARIFAS, DEPÓSITOS & EMPRÉSTIMOS)
                   </span>
                   <span className="font-mono text-[#FCA5A5]">
                     ({formatBRL(dre.resultadoFinanceiro)})
@@ -728,29 +733,45 @@ export default function DREPage() {
                 )}
               </div>
 
-              {/* 8. TRIBUTOS FEDERAIS */}
+              {/* 8. TRIBUTOS */}
               <div className="bg-white/[0.01]">
                 <div className="flex items-center justify-between py-3 px-4 sm:px-6 bg-[#08080B]/80 font-bold text-xs sm:text-sm text-white border-b border-white/[0.06]">
                   <span className="flex items-center gap-2 text-white/90">
                     <span className="h-2 w-2 rounded-full bg-[#E10613]" />
-                    8. (–) TRIBUTOS FEDERAIS & DARFs
+                    8. (–) TRIBUTOS (FEDERAIS, MUNICIPAIS & PARCELAMENTOS)
                   </span>
-                  <span className="font-mono text-[#FCA5A5]">
-                    ({formatBRL(dre.impostosFinais)})
-                  </span>
+                  <span className="font-mono text-[#FCA5A5]">({formatBRL(dre.tributos)})</span>
                 </div>
-                {dre.impostosFinaisRows.length > 0 ? (
-                  dre.impostosFinaisRows.map((row) => (
+                {dre.tributosRows.length > 0 ? (
+                  dre.tributosRows.map((row) => (
                     <DRERowItem key={row.category} row={row} isExpense={true} indent />
                   ))
                 ) : (
                   <p className="py-2 px-8 text-xs text-white/30 italic">
-                    Sem tributos federais lançados no período
+                    Sem tributos lançados no período
                   </p>
                 )}
               </div>
 
-              {/* 9. LUCRO LÍQUIDO FINAL DO PERÍODO */}
+              {/* 9. INVESTIMENTOS / NÃO OPERACIONAL */}
+              {dre.investimentosRows.length > 0 && (
+                <div className="bg-white/[0.01]">
+                  <div className="flex items-center justify-between py-3 px-4 sm:px-6 bg-[#08080B]/80 font-bold text-xs sm:text-sm text-white border-b border-white/[0.06]">
+                    <span className="flex items-center gap-2 text-white/90">
+                      <span className="h-2 w-2 rounded-full bg-indigo-400" />
+                      9. (–) INVESTIMENTOS & NÃO OPERACIONAL
+                    </span>
+                    <span className="font-mono text-[#FCA5A5]">
+                      ({formatBRL(dre.investimentos)})
+                    </span>
+                  </div>
+                  {dre.investimentosRows.map((row) => (
+                    <DRERowItem key={row.category} row={row} isExpense={true} indent />
+                  ))}
+                </div>
+              )}
+
+              {/* 10. LUCRO LÍQUIDO FINAL DO PERÍODO */}
               <div
                 className={`flex items-center justify-between py-5 px-4 sm:px-8 font-extrabold text-base sm:text-lg border-t-2 ${
                   dre.lucroLiquido >= 0
@@ -773,7 +794,7 @@ export default function DREPage() {
                     )}
                   </div>
                   <div>
-                    <span className="block text-white">9. (=) LUCRO LÍQUIDO DO PERÍODO</span>
+                    <span className="block text-white">10. (=) LUCRO LÍQUIDO DO PERÍODO</span>
                     <span className="block text-xs font-normal text-white/60">
                       Resultado final apurado para {dre.periodLabel}
                     </span>
