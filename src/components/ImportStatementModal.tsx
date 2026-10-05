@@ -472,7 +472,7 @@ export const ImportStatementModal: React.FC<ImportStatementModalProps> = ({
 
         // Garante que a data está em formato ISO YYYY-MM-DD
         const validIsoDate = parseDateToISO(item.date) || item.date
-        if (!validIsoDate) {
+        if (!validIsoDate || !validIsoDate.trim()) {
           throw new Error(
             `O lançamento "${item.description.slice(0, 30)}" não possui data válida para gravação.`,
           )

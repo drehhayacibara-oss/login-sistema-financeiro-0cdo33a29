@@ -87,13 +87,20 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
 
   // Format date correctly for PocketBase:
   // Se for YYYY-MM-DD, grava 'YYYY-MM-DD 12:00:00.000Z' (meio-dia UTC) para evitar que
-  // qualquer fuso horário (ex: UTC-3 brasileiro) recue o dia ao exibir
+  // qualquer fuso horário (ex: UTC-3 brasileiro) recue o dia ao exibir.
+  // Suporta também strings brasileiras DD/MM/YYYY caso cheguem diretamente.
   let formattedDate = data.date.trim()
   const isoDayMatch = formattedDate.match(/^(\d{4}-\d{2}-\d{2})/)
   if (isoDayMatch) {
     formattedDate = `${isoDayMatch[1]} 12:00:00.000Z`
-  } else if (/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
-    formattedDate = `${formattedDate} 12:00:00.000Z`
+  } else {
+    const brMatch = formattedDate.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/)
+    if (brMatch) {
+      const d = brMatch[1].padStart(2, '0')
+      const m = brMatch[2].padStart(2, '0')
+      const y = brMatch[3]
+      formattedDate = `${y}-${m}-${d} 12:00:00.000Z`
+    }
   }
 
   const record = await pb.collection('transactions').create({
@@ -259,16 +266,19 @@ export function formatDatePtBR(dateString: string): string {
     // Se a string começar com YYYY-MM-DD (ex: "2024-12-25" ou "2024-12-25 12:00:00.000Z" ou "2024-12-25T12:00:00.000Z"),
     // extrai diretamente os componentes numéricos sem instanciar Date() com timezone do navegador.
     // Isso é imune a atrasos de timezone (UTC-3 recuando 2024-12-25 00:00:00 para 2024-12-24).
-    const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    const match = dateString.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/)
     if (match) {
       const [, y, m, d] = match
       return `${d}/${m}/${y}`
     }
 
-    // Se for formato brasileiro DD/MM/YYYY
-    const matchBr = dateString.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
+    // Se for formato brasileiro DD/MM/YYYY ou DD-MM-YYYY
+    const matchBr = dateString.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/)
     if (matchBr) {
-      return dateString.slice(0, 10)
+      const d = matchBr[1].padStart(2, '0')
+      const m = matchBr[2].padStart(2, '0')
+      const y = matchBr[3]
+      return `${d}/${m}/${y}`
     }
 
     const d = new Date(dateString)

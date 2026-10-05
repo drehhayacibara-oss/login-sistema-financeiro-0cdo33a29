@@ -110,7 +110,7 @@ export function parseDateToISO(rawDate: string): string | null {
     .trim()
 
   // 1. Formato OFX ou ISO compacto que começa com YYYYMMDD:
-  // Exemplo: 20241225120000.000 ou 20241225
+  // Exemplo: 20241225, 20241225120000, 20241225120000.000 ou com fuso horario entre colchetes
   const matchOfxStart = str.match(/^(\d{4})(\d{2})(\d{2})/)
   if (matchOfxStart) {
     const [, y, m, d] = matchOfxStart
@@ -118,7 +118,7 @@ export function parseDateToISO(rawDate: string): string | null {
     const monthNum = parseInt(m, 10)
     const dayNum = parseInt(d, 10)
     if (
-      yearNum >= 1990 &&
+      yearNum >= 1970 &&
       yearNum <= 2100 &&
       monthNum >= 1 &&
       monthNum <= 12 &&
@@ -139,7 +139,7 @@ export function parseDateToISO(rawDate: string): string | null {
     const monthNum = parseInt(m, 10)
     const dayNum = parseInt(d, 10)
     if (
-      yearNum >= 1990 &&
+      yearNum >= 1970 &&
       yearNum <= 2100 &&
       monthNum >= 1 &&
       monthNum <= 12 &&
@@ -174,7 +174,7 @@ export function parseDateToISO(rawDate: string): string | null {
     const monthNum = parseInt(m, 10)
     const dayNum = parseInt(d, 10)
     if (
-      yearNum >= 1990 &&
+      yearNum >= 1970 &&
       yearNum <= 2100 &&
       monthNum >= 1 &&
       monthNum <= 12 &&
@@ -195,7 +195,7 @@ export function parseDateToISO(rawDate: string): string | null {
     const monthNum = parseInt(m, 10)
     const dayNum = parseInt(d, 10)
     if (
-      yearNum >= 1990 &&
+      yearNum >= 1970 &&
       yearNum <= 2100 &&
       monthNum >= 1 &&
       monthNum <= 12 &&
@@ -214,7 +214,7 @@ export function parseDateToISO(rawDate: string): string | null {
     const monthNum = parseInt(m, 10)
     const dayNum = parseInt(d, 10)
     if (
-      yearNum >= 1990 &&
+      yearNum >= 1970 &&
       yearNum <= 2100 &&
       monthNum >= 1 &&
       monthNum <= 12 &&
@@ -242,22 +242,29 @@ export function parseOFX(content: string, defaultEntity: TransactionEntity = 'pj
   let match: RegExpExecArray | null
 
   // Helper interno para extrair o valor de uma tag OFX, considerando:
-  // 1) Tag com fechamento explícito: <TAG>conteúdo</TAG>
+  // 1) Tag com fechamento explícito: <TAG>conteúdo</TAG> ou <TAG attr="val">conteúdo</TAG>
   // 2) Tag SGML sem fechamento na mesma linha antes de outra tag: <TAG>conteúdo<OUTRA>
-  // 3) Tag SGML até o fim da linha: <TAG>conteúdo\n
+  // 3) Tag SGML até o fim da linha ou até o próximo marcador de tag: <TAG>conteúdo\n
   const extractOFXTagValue = (block: string, tagName: string): string => {
-    // 1. Tenta formato XML com fechamento explícito <TAG>conteudo</TAG>
-    const closedRegex = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 'i')
+    // 1. Tenta formato XML com fechamento explícito <TAG...>conteúdo</TAG>
+    const closedRegex = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i')
     const closedMatch = block.match(closedRegex)
     if (closedMatch && closedMatch[1] !== undefined) {
       return closedMatch[1].trim()
     }
 
-    // 2. Tenta formato SGML (sem fechamento), capturando até a próxima tag '<' ou quebra de linha
-    const openRegex = new RegExp(`<${tagName}>\\s*([^<\\r\\n]*)`, 'i')
+    // 2. Tenta formato SGML (sem fechamento), capturando até o próximo '<' ou fim de linha
+    const openRegex = new RegExp(`<${tagName}\\b[^>]*>\\s*([^<\\r\\n]*)`, 'i')
     const openMatch = block.match(openRegex)
     if (openMatch && openMatch[1] !== undefined) {
       return openMatch[1].trim()
+    }
+
+    // 3. Fallback tolerante para SGML com quebras ou espaços: até a próxima tag '<'
+    const fallbackRegex = new RegExp(`<${tagName}\\b[^>]*>\\s*([^<]+)`, 'i')
+    const fallbackMatch = block.match(fallbackRegex)
+    if (fallbackMatch && fallbackMatch[1] !== undefined) {
+      return fallbackMatch[1].trim()
     }
 
     return ''
