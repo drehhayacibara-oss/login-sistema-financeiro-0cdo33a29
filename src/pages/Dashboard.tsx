@@ -10,6 +10,7 @@ import {
   CalendarDays,
   CreditCard,
   Filter,
+  ClipboardList,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -55,6 +56,7 @@ type SidebarProps = {
   onNewTransaction: () => void
   onImportStatement: () => void
   onNavigateDRE: () => void
+  onNavigateCatalogs: () => void
 }
 
 type NavigationItem = {
@@ -73,6 +75,12 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       description: 'Painel financeiro',
       icon: LayoutDashboard,
       active: true,
+    },
+    {
+      label: 'Cadastros financeiros',
+      description: 'Consulta de cadastros',
+      icon: ClipboardList,
+      route: '/cadastros',
     },
     {
       label: 'Relatório DRE',
@@ -100,6 +108,12 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       active: true,
     },
     {
+      label: 'Cadastros financeiros',
+      description: 'Criar, editar e consultar opções',
+      icon: ClipboardList,
+      route: '/cadastros',
+    },
+    {
       label: 'Relatório DRE',
       description: 'Resultado PJ & Serviços',
       icon: BarChart3,
@@ -123,6 +137,12 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       description: 'Painel financeiro',
       icon: LayoutDashboard,
       active: true,
+    },
+    {
+      label: 'Cadastros do caixa',
+      description: 'Consultar categorias e formas',
+      icon: ClipboardList,
+      route: '/cadastros',
     },
     {
       label: 'Relatório DRE',
@@ -158,6 +178,7 @@ function Sidebar({
   onNewTransaction,
   onImportStatement,
   onNavigateDRE,
+  onNavigateCatalogs,
 }: SidebarProps) {
   return (
     <aside
@@ -230,6 +251,8 @@ function Sidebar({
               if (mobile && onClose) onClose()
               if (item.route === '/dre') {
                 onNavigateDRE()
+              } else if (item.route === '/cadastros') {
+                onNavigateCatalogs()
               } else if (item.active) {
                 if (onClose) onClose()
               } else {
@@ -544,6 +567,7 @@ export default function Dashboard() {
             onNewTransaction={() => setIsNewTxModalOpen(true)}
             onImportStatement={() => setIsImportModalOpen(true)}
             onNavigateDRE={() => navigate('/dre')}
+            onNavigateCatalogs={() => navigate('/cadastros')}
           />
         </>
       )}
@@ -571,6 +595,7 @@ export default function Dashboard() {
           onNewTransaction={() => setIsNewTxModalOpen(true)}
           onImportStatement={() => setIsImportModalOpen(true)}
           onNavigateDRE={() => navigate('/dre')}
+          onNavigateCatalogs={() => navigate('/cadastros')}
         />
 
         <div className="min-w-0 flex-1">

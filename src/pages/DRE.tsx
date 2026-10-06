@@ -41,6 +41,8 @@ import {
   exportDREToCSV,
 } from '@/services/dreMapper'
 import { SERVICES_PJ } from '@/constants/categories'
+import { listCatalogRecords } from '@/services/financialCatalogs'
+import { useRealtime } from '@/hooks/use-realtime'
 import { NewTransactionModal } from '@/components/NewTransactionModal'
 import { ImportStatementModal } from '@/components/ImportStatementModal'
 
@@ -104,9 +106,9 @@ const DRERowItem: React.FC<DRERowItemProps> = ({ row, isExpense = false, indent 
             Quebra por Serviço / Centro de Custo:
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
-            {SERVICES_PJ.map((srv) => {
-              const val = row.byService[srv] || 0
-              if (val === 0) return null
+            {Object.entries(row.byService)
+              .filter(([name, value]) => name !== 'Sem serviço' && value !== 0)
+              .map(([srv, val]) => {
               return (
                 <div
                   key={srv}
@@ -146,6 +148,7 @@ export default function DREPage() {
   const { toast } = useToast()
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [costCenters, setCostCenters] = useState<string[]>([...SERVICES_PJ])
   const [loadingData, setLoadingData] = useState(true)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isNewTxModalOpen, setIsNewTxModalOpen] = useState(false)
@@ -189,12 +192,73 @@ export default function DREPage() {
   }, [toast])
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadTransactions()
-    }
-  }, [isAuthenticated, loadTransactions])
+    if (!isAuthenticated) return
+    let mounted = true
+    listCatalogRecords('cost_centers')
+      .then((records) => {
+        if (mounted && records.length > 0) {
+          setCostCenters(Array.from(new Set([...SERVICES_PJ, ...records.map((record) => record.name)])))
+        }
+      })
+      .catch((error) => {
+        console.error('Erro ao carregar centros/áreas para a DRE:', error)
+        if (mounted) setCostCenters([...SERVICES_PJ])
+      })
+    return () => { mounted = false }
+  }, [isAuthenticated])
 
-  // Calcular DRE (puramente PJ)
+  useRealtime('financial_cost_centers', () => {
+    listCatalogRecords('cost_centers')
+      .then((records) => {
+        if (records.length > 0) setCostCenters(Array.from(new Set([...SERVICES_PJ, ...records.map((record) => record.name)])))
+      })
+      .catch((error) => console.error('Erro ao atualizar centros/áreas da DRE:', error))
+  }, isAuthenticated)
+
+<<<<<<< SEARCH
+    return calculateDRE(transactions, {
+      mode: periodMode,
+      monthKey: selectedMonth,
+      year: selectedYear,
+    })
+  }, [transactions, periodMode, selectedMonth, selectedYear])
+=======
+    return calculateDRE(transactions, {
+      mode: periodMode,
+      monthKey: selectedMonth,
+      year: selectedYear,
+    }, costCenters)
+  }, [transactions, periodMode, selectedMonth, selectedYear, costCenters])
+  const dre = useMemo<DREResult>(() => {
+    return calculateDRE(transactions, {
+      mode: periodMode,
+      monthKey: selectedMonth,
+      year: selectedYear,
+    })
+  }, [transactions, periodMode, selectedMonth, selectedYear])
+=======
+  const dre = useMemo<DREResult>(() => {
+    return calculateDRE(
+      transactions,
+      { mode: periodMode, monthKey: selectedMonth, year: selectedYear },
+      costCenters,
+    )
+  }, [transactions, periodMode, selectedMonth, selectedYear, costCenters])
+=======
+<<<<<<< SEARCH
+    return calculateDRE(transactions, {
+      mode: periodMode,
+      monthKey: selectedMonth,
+      year: selectedYear,
+    })
+  }, [transactions, periodMode, selectedMonth, selectedYear])
+=======
+    return calculateDRE(transactions, {
+      mode: periodMode,
+      monthKey: selectedMonth,
+      year: selectedYear,
+    }, costCenters)
+  }, [transactions, periodMode, selectedMonth, selectedYear, costCenters])
   const dre = useMemo<DREResult>(() => {
     return calculateDRE(transactions, {
       mode: periodMode,

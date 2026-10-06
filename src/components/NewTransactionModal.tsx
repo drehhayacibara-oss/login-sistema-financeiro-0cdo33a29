@@ -12,7 +12,6 @@ import { Label } from '@/components/ui/label'
 import {
   ArrowDownRight,
   ArrowUpRight,
-  Building2,
   Calendar,
   Check,
   DollarSign,
@@ -35,6 +34,10 @@ interface NewTransactionModalProps {
 
 import { CATEGORIES_PF, CATEGORIES_PJ, SERVICES_PJ } from '@/constants/categories'
 import { Briefcase } from 'lucide-react'
+import {
+  listCatalogRecords,
+  type FinancialCatalogRecord,
+} from '@/services/financialCatalogs'
 
 export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   open,
@@ -47,11 +50,42 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [description, setDescription] = useState<string>('')
   const [category, setCategory] = useState<string>('')
   const [servico, setServico] = useState<string>('')
+
+  const [catalogs, setCatalogs] = useState<{
+    categories: FinancialCatalogRecord[]
+    costCenters: FinancialCatalogRecord[]
+  }>({ categories: [], costCenters: [] })
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10))
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
 
   const currentCategories = entity === 'pf' ? CATEGORIES_PF : CATEGORIES_PJ
+  const categoryCatalog = catalogs.categories.filter(
+    (item) => item.direction === type && (item.entity === 'both' || item.entity === entity),
+  )
+  const availableCategories = categoryCatalog.length
+    ? categoryCatalog.map((item) => item.name)
+    : currentCategories[type]
+  const availableCostCenters = catalogs.costCenters.length
+    ? catalogs.costCenters.map((item) => item.name)
+    : [...SERVICES_PJ]
+
+  React.useEffect(() => {
+    if (!open) return
+    let mounted = true
+    Promise.allSettled([
+      listCatalogRecords('categories'),
+      listCatalogRecords('cost_centers'),
+    ]).then((results) => {
+      if (!mounted) return
+      const values = results.map((result) => result.status === 'fulfilled' ? result.value : [])
+      setCatalogs({
+        categories: values[0],
+        costCenters: values[1],
+      })
+    })
+    return () => { mounted = false }
+  }, [open])
 
   const resetForm = () => {
     setEntity('pj')
@@ -60,6 +94,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     setDescription('')
     setCategory('')
     setServico('')
+
     setDate(new Date().toISOString().slice(0, 10))
     setError(null)
   }
@@ -199,7 +234,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 type="button"
                 onClick={() => {
                   setType('income')
-                  if (!currentCategories.income.includes(category)) {
+                  if (!availableCategories.includes(category)) {
                     setCategory('')
                   }
                 }}
@@ -216,7 +251,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 type="button"
                 onClick={() => {
                   setType('expense')
-                  if (!currentCategories.expense.includes(category)) {
+                  if (!availableCategories.includes(category)) {
                     setCategory('')
                   }
                 }}
@@ -286,16 +321,20 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
                 <Tag className="h-4 w-4" />
               </span>
-              <Input
+              <select
                 id="tx-category"
-                type="text"
-                placeholder="Digite ou escolha abaixo"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 required
-                maxLength={50}
-                className="h-11 rounded-xl border-white/10 bg-[#08080B] pl-10 text-sm text-white placeholder:text-white/20 focus-visible:ring-[#E10613]"
-              />
+                className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-[#08080B] pl-10 pr-9 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#E10613]"
+              >
+                <option value="">Selecione uma categoria</option>
+                {availableCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Sugestões rápidas de categoria */}
@@ -304,20 +343,20 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 Sugestões de categorias ({entity === 'pf' ? 'Pessoa Física' : 'Pessoa Jurídica'}):
               </span>
               <div className="max-h-40 overflow-y-auto pr-1 flex flex-wrap gap-1.5 custom-scrollbar">
-                {currentCategories[type].map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setCategory(cat)}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] transition-colors text-left ${
-                      category === cat
-                        ? 'border-[#E10613]/60 bg-[#E10613]/25 font-bold text-white shadow-[0_0_10px_rgba(225,6,19,0.2)]'
-                        : 'border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.08] hover:text-white hover:border-white/20'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {availableCategories.map((cat) => (
+  <button
+    key={cat}
+    type="button"
+    onClick={() => setCategory(cat)}
+    className={`rounded-lg border px-2.5 py-1 text-[11px] transition-colors text-left ${
+      category === cat
+        ? 'border-[#E10613]/60 bg-[#E10613]/25 font-bold text-white shadow-[0_0_10px_rgba(225,6,19,0.2)]'
+        : 'border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.08] hover:text-white hover:border-white/20'
+    }`}
+  >
+    {cat}
+  </button>
+))}
               </div>
             </div>
           </div>
@@ -370,7 +409,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 >
                   Sem serviço
                 </button>
-                {SERVICES_PJ.map((srv) => (
+                {availableCostCenters.map((srv) => (
                   <button
                     key={srv}
                     type="button"
@@ -387,6 +426,8 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               </div>
             </div>
           )}
+
+
 
           {/* Data */}
           <div>

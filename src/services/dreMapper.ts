@@ -1,4 +1,4 @@
-import { CATEGORIES_PJ, SERVICES_PJ, type ServicePJ } from '@/constants/categories'
+import { CATEGORIES_PJ, SERVICES_PJ } from '@/constants/categories'
 import type { Transaction } from './transactions'
 
 /**
@@ -371,22 +371,20 @@ export interface DREResult {
   serviceSummaries: DREServiceSummary[]
 }
 
-function initServiceMap(): Record<string, number> {
+function initServiceMap(serviceNames: string[]): Record<string, number> {
   const map: Record<string, number> = {
     'Sem serviço': 0,
   }
-  for (const s of SERVICES_PJ) {
+  for (const s of serviceNames) {
     map[s] = 0
   }
   return map
 }
 
 function addToServiceMap(map: Record<string, number>, servico: string | undefined, amount: number) {
-  const s = servico && SERVICES_PJ.includes(servico as ServicePJ) ? servico : 'Sem serviço'
+  const s = servico && Object.prototype.hasOwnProperty.call(map, servico) ? servico : 'Sem serviço'
   map[s] = (map[s] || 0) + amount
-}
-
-/**
+}/**
  * Normaliza strings de categoria para comparação case-insensitive sem acentos espúrios,
  * mantendo a chave original de retorno.
  */
@@ -401,7 +399,10 @@ function normalizeCategoryKey(cat: string): string {
 export function calculateDRE(
   allTransactions: Transaction[],
   period: { mode: 'month' | 'year'; monthKey?: string; year?: number },
+  activeServiceNames: string[] = [],
 ): DREResult {
+  const serviceNames = Array.from(new Set([...SERVICES_PJ, ...activeServiceNames.map((name) => name.trim()).filter(Boolean)]))
+  const initServices = () => initServiceMap(serviceNames)
   // 1. Filtrar ESTRITAMENTE PJ (decisão do usuário: PF nunca entra na DRE)
   const pjTransactions = allTransactions.filter((t) => t.entity === 'pj')
 
@@ -434,7 +435,7 @@ export function calculateDRE(
       (t.category || '').trim() || (t.type === 'income' ? 'Outras Receitas' : 'Outras Despesas')
     const current = map.get(cat) || {
       total: 0,
-      byService: initServiceMap(),
+      byService: initServices(),
       count: 0,
     }
     current.total += t.amount
@@ -452,7 +453,7 @@ export function calculateDRE(
     return {
       category: cat,
       total: data ? data.total : 0,
-      byService: data ? { ...data.byService } : initServiceMap(),
+      byService: data ? { ...data.byService } : initServices(),
       semServico: data ? data.byService['Sem serviço'] || 0 : 0,
       count: data ? data.count : 0,
       isLegacyOrUnmapped,
@@ -461,11 +462,11 @@ export function calculateDRE(
 
   // 1. RECEITA BRUTA & DEDUÇÕES DE RECEITA
   let receitaBruta = 0
-  const receitaBrutaByService = initServiceMap()
+  const receitaBrutaByService = initServices()
   const receitaBrutaRows: DRECategoryRow[] = []
 
   let deducoesReceita = 0
-  const deducoesByService = initServiceMap()
+  const deducoesByService = initServices()
   const deducoesRows: DRECategoryRow[] = []
 
   // Constrói mapa indexado em uppercase para matching robusto
@@ -523,8 +524,8 @@ export function calculateDRE(
 
   // 3. RECEITA LÍQUIDA = Receita Bruta - Deduções
   const receitaLiquida = receitaBruta - deducoesReceita
-  const receitaLiquidaByService = initServiceMap()
-  for (const s of [...SERVICES_PJ, 'Sem serviço']) {
+  const receitaLiquidaByService = initServices()
+  for (const s of [...serviceNames, 'Sem serviço']) {
     receitaLiquidaByService[s] = (receitaBrutaByService[s] || 0) - (deducoesByService[s] || 0)
   }
 
@@ -535,7 +536,7 @@ export function calculateDRE(
   const extractCategoriesForGroup = (categoriesList: string[]) => {
     const matchedRows: DRECategoryRow[] = []
     let subtotal = 0
-    const bySrv = initServiceMap()
+    const bySrv = initServices()
 
     const targetSetUpper = new Set(categoriesList.map(normalizeCategoryKey))
     const officialExpenseSetUpper = new Set(CATEGORIES_PJ.expense.map(normalizeCategoryKey))
@@ -572,7 +573,7 @@ export function calculateDRE(
 
   // 4. CUSTOS DOS SERVIÇOS PRESTADOS (CSP)
   let custosServicos = 0
-  const custosServicosByService = initServiceMap()
+  const custosServicosByService = initServices()
   const custosServicosRows: DRECategoryRow[] = []
 
   const cspDef = DRE_EXPENSE_GROUPS.find((g) => g.id === 'custos_servicos')!
@@ -585,14 +586,14 @@ export function calculateDRE(
 
   // 5. LUCRO BRUTO = Receita Líquida - Custos dos Serviços
   const lucroBruto = receitaLiquida - custosServicos
-  const lucroBrutoByService = initServiceMap()
-  for (const s of [...SERVICES_PJ, 'Sem serviço']) {
+  const lucroBrutoByService = initServices()
+  for (const s of [...serviceNames, 'Sem serviço']) {
     lucroBrutoByService[s] = (receitaLiquidaByService[s] || 0) - (custosServicosByService[s] || 0)
   }
 
   // 6. DESPESAS OPERACIONAIS (subgrupos: Pessoal, Ocupação & Administrativas, Comercial & Marketing)
   let despesasOperacionais = 0
-  const despesasOperacionaisByService = initServiceMap()
+  const despesasOperacionaisByService = initServices()
   const despesasOperacionaisGroups: DREGroupResult[] = []
 
   const operationalGroupsDef = DRE_EXPENSE_GROUPS.filter(
@@ -621,7 +622,7 @@ export function calculateDRE(
 
   // 7. RESULTADO FINANCEIRO (Juros, Tarifas, Depósitos & Empréstimos)
   let resultadoFinanceiro = 0
-  const resultadoFinanceiroByService = initServiceMap()
+  const resultadoFinanceiroByService = initServices()
   const resultadoFinanceiroRows: DRECategoryRow[] = []
 
   const finDef = DRE_EXPENSE_GROUPS.find((g) => g.id === 'resultado_financeiro')!
@@ -634,7 +635,7 @@ export function calculateDRE(
 
   // 8. TRIBUTOS (Impostos Federais, Municipais, Parcelamentos)
   let tributos = 0
-  const tributosByService = initServiceMap()
+  const tributosByService = initServices()
   const tributosRows: DRECategoryRow[] = []
 
   const tribDef = DRE_EXPENSE_GROUPS.find((g) => g.id === 'tributos')!
@@ -647,7 +648,7 @@ export function calculateDRE(
 
   // 9. INVESTIMENTOS / NÃO OPERACIONAL
   let investimentos = 0
-  const investimentosByService = initServiceMap()
+  const investimentosByService = initServices()
   const investimentosRows: DRECategoryRow[] = []
 
   const invDef = DRE_EXPENSE_GROUPS.find((g) => g.id === 'investimentos')!
@@ -663,7 +664,7 @@ export function calculateDRE(
   // Se ainda houver despesas em pendingExpenses, alocamos na linha "Outras Despesas / Não Mapeadas"
   // que entra nas despesas operacionais da DRE garantindo fechamento 100% exato.
   let outrasNaoMapeadasTotal = 0
-  const outrasNaoMapeadasByService = initServiceMap()
+  const outrasNaoMapeadasByService = initServices()
   const outrasNaoMapeadasRows: DRECategoryRow[] = []
 
   if (pendingExpenses.size > 0) {
@@ -696,8 +697,8 @@ export function calculateDRE(
 
   // 7. RESULTADO OPERACIONAL = Lucro Bruto - Despesas Operacionais
   const resultadoOperacional = lucroBruto - despesasOperacionais
-  const resultadoOperacionalByService = initServiceMap()
-  for (const s of [...SERVICES_PJ, 'Sem serviço']) {
+  const resultadoOperacionalByService = initServices()
+  for (const s of [...serviceNames, 'Sem serviço']) {
     resultadoOperacionalByService[s] =
       (lucroBrutoByService[s] || 0) - (despesasOperacionaisByService[s] || 0)
   }
@@ -705,8 +706,8 @@ export function calculateDRE(
   // 11. LUCRO LÍQUIDO DO PERÍODO
   // = Resultado Operacional - Resultado Financeiro - Tributos - Investimentos
   const lucroLiquido = resultadoOperacional - resultadoFinanceiro - tributos - investimentos
-  const lucroLiquidoByService = initServiceMap()
-  for (const s of [...SERVICES_PJ, 'Sem serviço']) {
+  const lucroLiquidoByService = initServices()
+  for (const s of [...serviceNames, 'Sem serviço']) {
     lucroLiquidoByService[s] =
       (resultadoOperacionalByService[s] || 0) -
       (resultadoFinanceiroByService[s] || 0) -
@@ -716,7 +717,7 @@ export function calculateDRE(
 
   // Resumo por Serviço (mini-tabela consolidada dos 6 serviços fixos)
   const serviceSummaries: DREServiceSummary[] = []
-  const allServiceKeys: string[] = [...SERVICES_PJ, 'Sem serviço / Geral']
+  const allServiceKeys: string[] = [...serviceNames, 'Sem serviço / Geral']
 
   for (const srvKey of allServiceKeys) {
     const rawKey = srvKey.startsWith('Sem serviço') ? 'Sem serviço' : srvKey
@@ -810,7 +811,7 @@ export function exportDREToCSV(dre: DREResult): void {
     'Estrutura Contábil',
     'Categoria',
     'Total (R$)',
-    ...SERVICES_PJ.map((s) => `${s} (R$)`),
+    ...Object.keys(dre.lucroLiquidoByService).filter((name) => name !== 'Sem serviço').map((s) => `${s} (R$)`),
     'Sem serviço / Geral (R$)',
   ]
 
@@ -828,7 +829,7 @@ export function exportDREToCSV(dre: DREResult): void {
       `"${structure}"`,
       `"${category}"`,
       `"${formatNum(total)}"`,
-      ...SERVICES_PJ.map((s) => `"${formatNum(byService[s] || 0)}"`),
+      ...Object.keys(dre.lucroLiquidoByService).filter((name) => name !== 'Sem serviço').map((s) => `"${formatNum(byService[s] || 0)}"`),
       `"${formatNum(byService['Sem serviço'] || 0)}"`,
     ])
   }
