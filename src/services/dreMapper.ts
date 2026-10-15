@@ -1,39 +1,28 @@
 import { CATEGORIES_PJ, SERVICES_PJ } from '@/constants/categories'
 import type { Transaction } from './transactions'
+import type { ServiceEntry } from './serviceEntries'
 
 /**
  * ============================================================================
  * MAPEAMENTO OFICIAL DRE (Demonstração do Resultado do Exercício) - RUBRA
  * ============================================================================
- * REGRA CENTRAL DE NEGÓCIO: A DRE é EXCLUSIVAMENTE da Pessoa Jurídica (PJ).
- * Nenhuma movimentação de PF entra nestes cálculos sob qualquer hipótese.
+ * REGRA CENTRAL DE NEGÓCIO (DECISÃO DO USUÁRIO - REGRA DE OURO):
+ * 1. A DRE é EXCLUSIVAMENTE da Pessoa Jurídica (PJ). PF nunca entra.
+ * 2. RECEITAS vêm SOMENTE dos "Lançamentos de Serviços" (ServiceEntry).
+ *    Entradas do fluxo de caixa NÃO entram como receita na DRE para evitar dupla contagem.
+ * 3. DESPESAS vêm SOMENTE do Fluxo de Caixa (Transaction, entity='pj', type='expense').
  *
- * Baseado nas NOVAS listas de categorias de fluxo de caixa (CATEGORIES_PJ):
- * - 8 Receitas (formas de entrada de dinheiro): CARTAO DE DEBITO, CARTAO DE CREDITO,
+ * Baseado nas formas de pagamento PJ e centros de custo (CATEGORIES_PJ):
+ * - 8 Formas de Receita/Pagamento: CARTAO DE DEBITO, CARTAO DE CREDITO,
  *   ANTECIPACAO DE CARTAO DE CREDITO, PIX, DINHEIRO, CHEQUE, ALUGUEL DE SALAS, TED.
+ * - 6 Serviços / Centros de Custo oficiais: CENTRO CIRURGICO, CIRURGIAS EXTERNAS,
+ *   LABORATORIO, LITOTRIPSIA, CONSULTORIO, CLINICA GERAL.
  * - 30 Despesas agrupadas contabilmente:
  *   1. Custos Diretos dos Serviços (CSP - 7 itens)
  *   2. Despesas Operacionais (15 itens)
  *   3. Resultado Financeiro (4 itens)
  *   4. Tributos (3 itens)
  *   5. Investimentos / Não Operacional (1 item)
- *
- * Estrutura contábil encadeada:
- * 1. RECEITA BRUTA: soma de todas as 8 formas de entrada PJ
- * 2. (-) DEDUÇÕES DE RECEITA: deduções/estornos de receita ou impostos sobre serviços
- * 3. (=) RECEITA LÍQUIDA OPERACIONAL
- * 4. (-) CUSTOS DOS SERVIÇOS PRESTADOS (CSP): custos diretos hospitalares/médicos/insumos
- * 5. (=) LUCRO BRUTO OPERACIONAL
- * 6. (-) DESPESAS OPERACIONAIS:
- *      6.1 Pessoal & Folha (SALARIOS)
- *      6.2 Ocupação, Prediais & Administrativas (ALUGUEL EXTERNO, CONTADOR, DESPESAS PREDIAIS, etc.)
- *      6.3 Comerciais, Marketing & Relacionamento (MARKETING/PROPAGANDA, CONVENIO, etc.)
- *      6.4 Outras / Não mapeadas (lançamentos históricos)
- * 7. (=) RESULTADO OPERACIONAL (EBITDA / LAJIDA aproximado)
- * 8. (+/-) RESULTADO FINANCEIRO (JUROS BANCARIOS, TARIFAS BANCARIAS, EMPRESTIMO, DEPOSITOS BANCARIOS)
- * 9. (-) TRIBUTOS (IMPOSTOS FEDERAIS, IMPOSTOS MUNICIPAIS, PARCELAMENTO DE IMPOSTOS)
- * 10. (-) INVESTIMENTOS / NÃO OPERACIONAL (INVESTIMENTOS)
- * 11. (=) LUCRO LÍQUIDO DO PERÍODO
  * ============================================================================
  */
 
@@ -311,6 +300,7 @@ export interface DREServiceSummary {
 export interface DREResult {
   periodLabel: string
   totalTransactionsPJ: number
+  totalServiceEntries: number
 
   // 1. Receita Bruta
   receitaBruta: number
@@ -384,7 +374,7 @@ function initServiceMap(serviceNames: string[]): Record<string, number> {
 function addToServiceMap(map: Record<string, number>, servico: string | undefined, amount: number) {
   const s = servico && Object.prototype.hasOwnProperty.call(map, servico) ? servico : 'Sem serviço'
   map[s] = (map[s] || 0) + amount
-}/**
+} /**
  * Normaliza strings de categoria para comparação case-insensitive sem acentos espúrios,
  * mantendo a chave original de retorno.
  */
@@ -400,40 +390,46 @@ export function calculateDRE(
   allTransactions: Transaction[],
   period: { mode: 'month' | 'year'; monthKey?: string; year?: number },
   activeServiceNames: string[] = [],
+  serviceEntries: ServiceEntry[] = [],
 ): DREResult {
-  const serviceNames = Array.from(new Set([...SERVICES_PJ, ...activeServiceNames.map((name) => name.trim()).filter(Boolean)]))
+  const serviceNames = Array.from(
+    new Set([...SERVICES_PJ, ...activeServiceNames.map((name) => name.trim()).filter(Boolean)]),
+  )
   const initServices = () => initServiceMap(serviceNames)
-  // 1. Filtrar ESTRITAMENTE PJ (decisão do usuário: PF nunca entra na DRE)
+
+  // 1. Filtrar ESTRITAMENTE PJ para despesas do fluxo de caixa (decisão: PF nunca entra na DRE)
   const pjTransactions = allTransactions.filter((t) => t.entity === 'pj')
 
-  // 2. Filtrar por período
-  const filtered = pjTransactions.filter((t) => {
-    if (!t.date) return false
-    const dateStr = t.date.slice(0, 10)
+  // Helper para filtrar por período (YYYY-MM ou YYYY)
+  const isInPeriod = (dateStr?: string) => {
+    if (!dateStr) return false
+    const clean = dateStr.slice(0, 10)
     if (period.mode === 'month') {
       const targetMonth = period.monthKey || new Date().toISOString().slice(0, 7)
-      return dateStr.startsWith(targetMonth)
+      return clean.startsWith(targetMonth)
     } else {
       const targetYear = String(period.year || new Date().getFullYear())
-      return dateStr.startsWith(targetYear)
+      return clean.startsWith(targetYear)
     }
-  })
+  }
 
-  // Agrupar transações por categoria mantendo o casing original
-  const incomeByCategory = new Map<
-    string,
-    { total: number; byService: Record<string, number>; count: number }
-  >()
+  // Despesas filtradas por período (apenas PJ e apenas 'expense' do fluxo de caixa)
+  const filteredPJExpenses = pjTransactions.filter(
+    (t) => t.type === 'expense' && isInPeriod(t.date),
+  )
+
+  // Lançamentos de serviços filtrados por período
+  const filteredServiceEntries = serviceEntries.filter((se) => isInPeriod(se.date))
+
+  // Agrupar despesas por categoria
   const expenseByCategory = new Map<
     string,
     { total: number; byService: Record<string, number>; count: number }
   >()
 
-  for (const t of filtered) {
-    const map = t.type === 'income' ? incomeByCategory : expenseByCategory
-    const cat =
-      (t.category || '').trim() || (t.type === 'income' ? 'Outras Receitas' : 'Outras Despesas')
-    const current = map.get(cat) || {
+  for (const t of filteredPJExpenses) {
+    const cat = (t.category || '').trim() || 'Outras Despesas'
+    const current = expenseByCategory.get(cat) || {
       total: 0,
       byService: initServices(),
       count: 0,
@@ -441,7 +437,27 @@ export function calculateDRE(
     current.total += t.amount
     current.count += 1
     addToServiceMap(current.byService, t.servico, t.amount)
-    map.set(cat, current)
+    expenseByCategory.set(cat, current)
+  }
+
+  // Agrupar receitas SOMENTE a partir dos Lançamentos de Serviços (ServiceEntry)
+  // Agrupadas por forma de pagamento (payment_method) com quebra pelos 6 serviços
+  const incomeByPaymentMethod = new Map<
+    string,
+    { total: number; byService: Record<string, number>; count: number }
+  >()
+
+  for (const entry of filteredServiceEntries) {
+    const method = (entry.payment_method || '').trim() || 'Outros'
+    const current = incomeByPaymentMethod.get(method) || {
+      total: 0,
+      byService: initServices(),
+      count: 0,
+    }
+    current.total += entry.amount
+    current.count += 1
+    addToServiceMap(current.byService, entry.servico, entry.amount)
+    incomeByPaymentMethod.set(method, current)
   }
 
   // Helper para construir DRECategoryRow
@@ -461,11 +477,12 @@ export function calculateDRE(
   }
 
   // 1. RECEITA BRUTA & DEDUÇÕES DE RECEITA
+  // DECISÃO DO USUÁRIO (REGRA DE OURO): Receitas vêm SOMENTE dos lançamentos de serviços
   let receitaBruta = 0
   const receitaBrutaByService = initServices()
   const receitaBrutaRows: DRECategoryRow[] = []
 
-  let deducoesReceita = 0
+  const deducoesReceita = 0
   const deducoesByService = initServices()
   const deducoesRows: DRECategoryRow[] = []
 
@@ -475,37 +492,28 @@ export function calculateDRE(
     revenueMappingUpper.set(normalizeCategoryKey(k), v)
   })
 
-  // Conjunto de categorias de receita oficiais atuais
+  // Conjunto oficial das 8 formas de pagamento de receita PJ
   const officialIncomeSetUpper = new Set(CATEGORIES_PJ.income.map(normalizeCategoryKey))
 
-  // Percorre todas as categorias de receita encontradas nas transações + padrão da PJ
+  // Todas as formas de pagamento presentes nos lançamentos de serviços + as 8 formas oficiais
   const allIncomeCategoryKeys = new Set([
     ...CATEGORIES_PJ.income,
-    ...Array.from(incomeByCategory.keys()),
+    ...Array.from(incomeByPaymentMethod.keys()),
   ])
 
   allIncomeCategoryKeys.forEach((cat) => {
-    const data = incomeByCategory.get(cat)
+    const data = incomeByPaymentMethod.get(cat)
     if (!data || data.total === 0) return
 
     const norm = normalizeCategoryKey(cat)
-    const targetGroup = revenueMappingUpper.get(norm) || 'receita_bruta'
     const isLegacy = !officialIncomeSetUpper.has(norm)
 
     const row = buildRow(cat, data, isLegacy)
-    if (targetGroup === 'receita_bruta') {
-      receitaBruta += row.total
-      for (const [s, amt] of Object.entries(row.byService)) {
-        receitaBrutaByService[s] = (receitaBrutaByService[s] || 0) + amt
-      }
-      receitaBrutaRows.push(row)
-    } else {
-      deducoesReceita += row.total
-      for (const [s, amt] of Object.entries(row.byService)) {
-        deducoesByService[s] = (deducoesByService[s] || 0) + amt
-      }
-      deducoesRows.push(row)
+    receitaBruta += row.total
+    for (const [s, amt] of Object.entries(row.byService)) {
+      receitaBrutaByService[s] = (receitaBrutaByService[s] || 0) + amt
     }
+    receitaBrutaRows.push(row)
   })
 
   // Ordenar linhas de receita bruta: primeiro as 8 oficiais na ordem do constants, depois legadas/outras
@@ -767,7 +775,8 @@ export function calculateDRE(
 
   return {
     periodLabel,
-    totalTransactionsPJ: filtered.length,
+    totalTransactionsPJ: filteredPJExpenses.length,
+    totalServiceEntries: filteredServiceEntries.length,
     receitaBruta,
     receitaBrutaRows,
     receitaBrutaByService,
@@ -811,7 +820,9 @@ export function exportDREToCSV(dre: DREResult): void {
     'Estrutura Contábil',
     'Categoria',
     'Total (R$)',
-    ...Object.keys(dre.lucroLiquidoByService).filter((name) => name !== 'Sem serviço').map((s) => `${s} (R$)`),
+    ...Object.keys(dre.lucroLiquidoByService)
+      .filter((name) => name !== 'Sem serviço')
+      .map((s) => `${s} (R$)`),
     'Sem serviço / Geral (R$)',
   ]
 
@@ -829,7 +840,9 @@ export function exportDREToCSV(dre: DREResult): void {
       `"${structure}"`,
       `"${category}"`,
       `"${formatNum(total)}"`,
-      ...Object.keys(dre.lucroLiquidoByService).filter((name) => name !== 'Sem serviço').map((s) => `"${formatNum(byService[s] || 0)}"`),
+      ...Object.keys(dre.lucroLiquidoByService)
+        .filter((name) => name !== 'Sem serviço')
+        .map((s) => `"${formatNum(byService[s] || 0)}"`),
       `"${formatNum(byService['Sem serviço'] || 0)}"`,
     ])
   }

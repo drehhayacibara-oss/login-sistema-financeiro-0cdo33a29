@@ -34,6 +34,7 @@ import {
   fetchTransactions,
   formatBRL,
 } from '@/services/transactions'
+import { type ServiceEntry, fetchServiceEntries } from '@/services/serviceEntries'
 import {
   type DRECategoryRow,
   type DREResult,
@@ -109,20 +110,20 @@ const DRERowItem: React.FC<DRERowItemProps> = ({ row, isExpense = false, indent 
             {Object.entries(row.byService)
               .filter(([name, value]) => name !== 'Sem serviço' && value !== 0)
               .map(([srv, val]) => {
-              return (
-                <div
-                  key={srv}
-                  className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5"
-                >
-                  <span className="truncate text-white/60 font-semibold">{srv}</span>
-                  <span
-                    className={`font-mono font-bold ${isExpense ? 'text-[#FCA5A5]' : 'text-emerald-400'}`}
+                return (
+                  <div
+                    key={srv}
+                    className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5"
                   >
-                    {isExpense ? `(${formatBRL(val)})` : formatBRL(val)}
-                  </span>
-                </div>
-              )
-            })}
+                    <span className="truncate text-white/60 font-semibold">{srv}</span>
+                    <span
+                      className={`font-mono font-bold ${isExpense ? 'text-[#FCA5A5]' : 'text-emerald-400'}`}
+                    >
+                      {isExpense ? `(${formatBRL(val)})` : formatBRL(val)}
+                    </span>
+                  </div>
+                )
+              })}
             {(row.byService['Sem serviço'] || 0) > 0 && (
               <div className="flex items-center justify-between rounded-lg border border-dashed border-white/10 bg-white/[0.01] px-2.5 py-1.5">
                 <span className="truncate text-white/40 italic">Sem serviço / Geral</span>
@@ -148,6 +149,7 @@ export default function DREPage() {
   const { toast } = useToast()
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [serviceEntries, setServiceEntries] = useState<ServiceEntry[]>([])
   const [costCenters, setCostCenters] = useState<string[]>([...SERVICES_PJ])
   const [loadingData, setLoadingData] = useState(true)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -173,17 +175,18 @@ export default function DREPage() {
     }
   }, [isLoading, isAuthenticated, navigate, toast])
 
-  // Load transactions
-  const loadTransactions = useCallback(async () => {
+  // Load transactions & service entries
+  const loadAllData = useCallback(async () => {
     try {
       setLoadingData(true)
-      const data = await fetchTransactions()
-      setTransactions(data)
+      const [txs, entries] = await Promise.all([fetchTransactions(), fetchServiceEntries()])
+      setTransactions(txs)
+      setServiceEntries(entries)
     } catch (err) {
-      console.error('Erro ao carregar transações para DRE:', err)
+      console.error('Erro ao carregar dados para DRE:', err)
       toast({
         title: 'Erro ao carregar dados',
-        description: 'Não foi possível carregar as movimentações do banco.',
+        description: 'Não foi possível carregar as movimentações e lançamentos de serviços.',
         className: 'border-l-4 border-l-[#E10613] bg-[#121216] text-white',
       })
     } finally {
@@ -192,80 +195,70 @@ export default function DREPage() {
   }, [toast])
 
   useEffect(() => {
+    if (isAuthenticated) {
+      loadAllData()
+    }
+  }, [isAuthenticated, loadAllData])
+
+  useEffect(() => {
     if (!isAuthenticated) return
     let mounted = true
     listCatalogRecords('cost_centers')
       .then((records) => {
         if (mounted && records.length > 0) {
-          setCostCenters(Array.from(new Set([...SERVICES_PJ, ...records.map((record) => record.name)])))
+          setCostCenters(
+            Array.from(new Set([...SERVICES_PJ, ...records.map((record) => record.name)])),
+          )
         }
       })
       .catch((error) => {
         console.error('Erro ao carregar centros/áreas para a DRE:', error)
         if (mounted) setCostCenters([...SERVICES_PJ])
       })
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+    }
   }, [isAuthenticated])
 
-  useRealtime('financial_cost_centers', () => {
-    listCatalogRecords('cost_centers')
-      .then((records) => {
-        if (records.length > 0) setCostCenters(Array.from(new Set([...SERVICES_PJ, ...records.map((record) => record.name)])))
-      })
-      .catch((error) => console.error('Erro ao atualizar centros/áreas da DRE:', error))
-  }, isAuthenticated)
+  useRealtime(
+    'financial_cost_centers',
+    () => {
+      listCatalogRecords('cost_centers')
+        .then((records) => {
+          if (records.length > 0)
+            setCostCenters(
+              Array.from(new Set([...SERVICES_PJ, ...records.map((record) => record.name)])),
+            )
+        })
+        .catch((error) => console.error('Erro ao atualizar centros/áreas da DRE:', error))
+    },
+    isAuthenticated,
+  )
 
-<<<<<<< SEARCH
-    return calculateDRE(transactions, {
-      mode: periodMode,
-      monthKey: selectedMonth,
-      year: selectedYear,
-    })
-  }, [transactions, periodMode, selectedMonth, selectedYear])
-=======
-    return calculateDRE(transactions, {
-      mode: periodMode,
-      monthKey: selectedMonth,
-      year: selectedYear,
-    }, costCenters)
-  }, [transactions, periodMode, selectedMonth, selectedYear, costCenters])
-  const dre = useMemo<DREResult>(() => {
-    return calculateDRE(transactions, {
-      mode: periodMode,
-      monthKey: selectedMonth,
-      year: selectedYear,
-    })
-  }, [transactions, periodMode, selectedMonth, selectedYear])
-=======
+  useRealtime(
+    'service_entries',
+    () => {
+      loadAllData()
+    },
+    isAuthenticated,
+  )
+
+  useRealtime(
+    'transactions',
+    () => {
+      loadAllData()
+    },
+    isAuthenticated,
+  )
+
   const dre = useMemo<DREResult>(() => {
     return calculateDRE(
       transactions,
       { mode: periodMode, monthKey: selectedMonth, year: selectedYear },
       costCenters,
+      serviceEntries,
     )
-  }, [transactions, periodMode, selectedMonth, selectedYear, costCenters])
-=======
-<<<<<<< SEARCH
-    return calculateDRE(transactions, {
-      mode: periodMode,
-      monthKey: selectedMonth,
-      year: selectedYear,
-    })
-  }, [transactions, periodMode, selectedMonth, selectedYear])
-=======
-    return calculateDRE(transactions, {
-      mode: periodMode,
-      monthKey: selectedMonth,
-      year: selectedYear,
-    }, costCenters)
-  }, [transactions, periodMode, selectedMonth, selectedYear, costCenters])
-  const dre = useMemo<DREResult>(() => {
-    return calculateDRE(transactions, {
-      mode: periodMode,
-      monthKey: selectedMonth,
-      year: selectedYear,
-    })
-  }, [transactions, periodMode, selectedMonth, selectedYear])
+  }, [transactions, periodMode, selectedMonth, selectedYear, costCenters, serviceEntries])
 
   const handleCreateTransaction = async (dto: CreateTransactionDTO) => {
     const newTx = await createTransaction(dto)
@@ -322,7 +315,7 @@ export default function DREPage() {
         open={isImportModalOpen}
         onOpenChange={setIsImportModalOpen}
         existingTransactions={transactions}
-        onImportComplete={() => loadTransactions()}
+        onImportComplete={() => loadAllData()}
         createTransactionFn={createTransaction}
       />
 
@@ -358,7 +351,7 @@ export default function DREPage() {
             <button
               type="button"
               onClick={handleExportCSV}
-              disabled={dre.totalTransactionsPJ === 0}
+              disabled={dre.receitaBruta === 0 && dre.totalTransactionsPJ === 0}
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-bold text-white transition-all hover:border-[#E10613]/50 hover:bg-[#E10613]/10 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Download className="h-4 w-4 text-[#E10613]" />
@@ -379,22 +372,24 @@ export default function DREPage() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-[1560px] w-full flex-1 px-5 py-6 sm:px-8 sm:py-8 xl:px-10 space-y-6">
-        {/* Banner de Regra de Negócio: Exclusividade PJ */}
+        {/* Banner de Regra de Negócio: Regra de Ouro da DRE */}
         <div className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.06] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-sky-200">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400">
               <Building2 className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-bold text-white">Relatório DRE Pessoa Jurídica (PJ)</p>
+              <p className="font-bold text-white">Regra Contábil da DRE — Rubra (PJ Exclusivo)</p>
               <p className="text-[11px] text-sky-200/70 leading-relaxed">
-                Conforme a regra contábil do Rubra, a DRE apura <strong>exclusivamente</strong>{' '}
-                movimentações da PJ. Lançamentos de Pessoa Física são rigorosamente desconsiderados.
+                As receitas são calculadas <strong>SOMENTE</strong> dos Lançamentos de Serviços
+                (evitando dupla contagem de caixa). As despesas vêm <strong>SOMENTE</strong> do
+                fluxo de caixa PJ.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[11px] font-mono text-sky-300/80 shrink-0 self-end sm:self-auto">
-            <span>{dre.totalTransactionsPJ} lançamento(s) PJ no período</span>
+          <div className="flex flex-col sm:items-end gap-0.5 text-[11px] font-mono text-sky-300/80 shrink-0 self-end sm:self-auto">
+            <span>{dre.totalServiceEntries} serviço(s) lançado(s)</span>
+            <span>{dre.totalTransactionsPJ} despesa(s) PJ no fluxo</span>
           </div>
         </div>
 
@@ -463,7 +458,7 @@ export default function DREPage() {
 
             <button
               type="button"
-              onClick={loadTransactions}
+              onClick={loadAllData}
               disabled={loadingData}
               title="Recarregar dados"
               className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.06] hover:text-white"
@@ -480,10 +475,12 @@ export default function DREPage() {
           {/* Receita Bruta */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">
-              1. Receita Bruta PJ (8 formas de entrada)
+              1. Receita Bruta PJ (Lançamentos de Serviços)
             </p>
             <p className="mt-2 text-2xl font-extrabold text-white">{formatBRL(dre.receitaBruta)}</p>
-            <p className="mt-1 text-xs text-white/40">Entradas totais de caixa no período</p>
+            <p className="mt-1 text-xs text-white/40">
+              {dre.totalServiceEntries} lançamento(s) de serviço no período
+            </p>
           </div>
 
           {/* Receita Líquida */}
@@ -552,12 +549,12 @@ export default function DREPage() {
                   Resultado por Serviço / Centro de Custo
                 </h3>
                 <p className="text-xs text-white/40">
-                  Apuração de receitas, custos/despesas e margem para cada um dos 6 serviços fixos
+                  Apuração de receitas, custos/despesas e margem para cada serviço
                 </p>
               </div>
             </div>
             <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[10px] font-semibold text-white/40 self-start sm:self-auto">
-              6 Serviços Oficiais + Geral
+              Serviços oficiais + Geral
             </span>
           </div>
 
@@ -844,42 +841,28 @@ export default function DREPage() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                      dre.lucroLiquido >= 0
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-[#E10613]/20 text-[#E10613]'
-                    }`}
-                  >
-                    {dre.lucroLiquido >= 0 ? (
-                      <TrendingUp className="h-6 w-6" />
-                    ) : (
-                      <TrendingDown className="h-6 w-6" />
-                    )}
-                  </div>
-                  <div>
-                    <span className="block text-white">10. (=) LUCRO LÍQUIDO DO PERÍODO</span>
-                    <span className="block text-xs font-normal text-white/60">
-                      Resultado final apurado para {dre.periodLabel}
+                  <span>10. (=) LUCRO LÍQUIDO DO PERÍODO</span>
+                  {dre.outrasNaoMapeadasTotal > 0 && (
+                    <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[9px] text-amber-300 font-medium normal-case">
+                      inclui {formatBRL(dre.outrasNaoMapeadasTotal)} não mapeados
                     </span>
-                  </div>
+                  )}
                 </div>
-
-                <div className="text-right font-mono text-xl sm:text-2xl">
+                <span className="font-mono">
                   {dre.lucroLiquido >= 0 ? '+' : ''}
                   {formatBRL(dre.lucroLiquido)}
-                </div>
+                </span>
               </div>
             </div>
           )}
         </section>
 
-        {/* Rodapé explicativo contábil */}
-        <footer className="rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 text-xs text-white/40 space-y-2">
-          <div className="flex items-center gap-2 font-bold text-white/70">
-            <ShieldCheck className="h-4 w-4 text-[#E10613]" />
-            <span>Critérios Contábeis & Auditoria Interna do Rubra</span>
-          </div>
+        {/* Nota metodológica */}
+        <footer className="rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-5 text-[11px] leading-relaxed text-white/35">
+          <p className="mb-1 flex items-center gap-2 text-xs font-bold text-white/50">
+            <Info className="h-3.5 w-3.5 text-[#E10613]" />
+            Sobre esta apuração
+          </p>
           <p className="leading-relaxed">
             A DRE é calculada pelo regime de caixa/competência com base nas datas e valores das
             transações da Pessoa Jurídica cadastradas no PocketBase. As 6 unidades de serviço

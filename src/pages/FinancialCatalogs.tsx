@@ -89,10 +89,7 @@ export default function FinancialCatalogsPage() {
   const [formError, setFormError] = useState('')
 
   const canManage = user?.role === 'gestao_financeira'
-  const definitions = useMemo(
-    () => (user ? getVisibleCatalogDefinitions(user.role) : []),
-    [user],
-  )
+  const definitions = useMemo(() => (user ? getVisibleCatalogDefinitions(user.role) : []), [user])
   const definition = definitions.find((item) => item.type === selectedType) || definitions[0]
 
   useEffect(() => {
@@ -223,17 +220,30 @@ export default function FinancialCatalogsPage() {
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#E10613]">
                 Gestão Financeira
               </p>
-              <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight">Cadastros financeiros</h1>
+              <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight">
+                Cadastros financeiros
+              </h1>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0D0D11] px-3 py-2 text-xs text-white/50">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            Perfil: <span className="font-semibold text-white">{user.role === 'recepcao' ? 'Recepção' : user.role === 'direcao' ? 'Direção' : 'Gestão Financeira'}</span>
+            Perfil:{' '}
+            <span className="font-semibold text-white">
+              {user.role === 'recepcao'
+                ? 'Recepção'
+                : user.role === 'direcao'
+                  ? 'Direção'
+                  : 'Gestão Financeira'}
+            </span>
           </div>
         </header>
 
         <section className="rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-4 sm:p-5">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Tipos de cadastro">
+          <div
+            className="flex items-center gap-2 overflow-x-auto pb-1"
+            role="tablist"
+            aria-label="Tipos de cadastro"
+          >
             {definitions.map((item) => {
               const ItemIcon = icons[item.type]
               const selected = item.type === definition.type
@@ -250,7 +260,9 @@ export default function FinancialCatalogsPage() {
                   }}
                   className={`inline-flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#E10613] ${selected ? 'border-[#E10613]/50 bg-[#E10613]/10 text-white' : 'border-white/10 bg-white/[0.02] text-white/50 hover:bg-white/[0.05] hover:text-white'}`}
                 >
-                  <ItemIcon className={`h-4 w-4 ${selected ? 'text-[#E10613]' : 'text-white/35'}`} />
+                  <ItemIcon
+                    className={`h-4 w-4 ${selected ? 'text-[#E10613]' : 'text-white/35'}`}
+                  />
                   {item.label}
                 </button>
               )
@@ -265,12 +277,16 @@ export default function FinancialCatalogsPage() {
           </div>
         </section>
 
-        <div className={`grid gap-6 ${canManage ? 'xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.85fr)]' : 'grid-cols-1'}`}>
+        <div
+          className={`grid gap-6 ${canManage ? 'xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.85fr)]' : 'grid-cols-1'}`}
+        >
           <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0D0D11]">
             <div className="flex flex-col justify-between gap-3 border-b border-white/[0.08] p-4 sm:flex-row sm:items-center sm:p-5">
               <div>
                 <h2 className="text-base font-bold">Registros ativos</h2>
-                <p className="mt-1 text-xs text-white/40">{visibleRecords.length} {visibleRecords.length === 1 ? 'cadastro' : 'cadastros'}</p>
+                <p className="mt-1 text-xs text-white/40">
+                  {visibleRecords.length} {visibleRecords.length === 1 ? 'cadastro' : 'cadastros'}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
@@ -306,32 +322,49 @@ export default function FinancialCatalogsPage() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
                   <Icon className="h-5 w-5 text-white/30" />
                 </div>
-                <p className="mt-3 text-sm font-semibold text-white/70">Nenhum cadastro encontrado</p>
+                <p className="mt-3 text-sm font-semibold text-white/70">
+                  Nenhum cadastro encontrado
+                </p>
                 <p className="mt-1 max-w-md text-xs leading-relaxed text-white/35">
-                  {search ? 'Ajuste o termo de busca ou limpe o filtro.' : 'Crie o primeiro registro para disponibilizá-lo nos fluxos financeiros.'}
+                  {search
+                    ? 'Ajuste o termo de busca ou limpe o filtro.'
+                    : 'Crie o primeiro registro para disponibilizá-lo nos fluxos financeiros.'}
                 </p>
               </div>
             ) : (
               <div className="divide-y divide-white/[0.05]">
                 {visibleRecords.map((record) => (
-                  <article key={record.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <article
+                    key={record.id}
+                    className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                  >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate text-sm font-semibold text-white">{record.name}</h3>
                         {definition.type === 'categories' && record.direction && (
-                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/55">{optionLabel(record.direction)}</span>
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/55">
+                            {optionLabel(record.direction)}
+                          </span>
                         )}
                         {definition.type === 'categories' && record.entity && (
-                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/55">{optionLabel(record.entity)}</span>
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/55">
+                            {optionLabel(record.entity)}
+                          </span>
                         )}
                         {definition.type === 'accounts' && record.account_type && (
-                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/55">{optionLabel(record.account_type)}</span>
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/55">
+                            {optionLabel(record.account_type)}
+                          </span>
                         )}
                         {definition.type === 'doctors' && record.crm && (
-                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/55">CRM {record.crm}</span>
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/55">
+                            CRM {record.crm}
+                          </span>
                         )}
                       </div>
-                      {record.description && <p className="mt-1 text-xs text-white/40">{record.description}</p>}
+                      {record.description && (
+                        <p className="mt-1 text-xs text-white/40">{record.description}</p>
+                      )}
                     </div>
                     {canManage && (
                       <button
@@ -353,38 +386,118 @@ export default function FinancialCatalogsPage() {
             <section className="h-fit rounded-2xl border border-white/[0.08] bg-[#0D0D11] p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#E10613]">{editingId ? 'Edição' : 'Novo registro'}</p>
-                  <h2 className="mt-1 text-base font-bold">{editingId ? `Editar ${definition.singular}` : `Cadastrar ${definition.singular}`}</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#E10613]">
+                    {editingId ? 'Edição' : 'Novo registro'}
+                  </p>
+                  <h2 className="mt-1 text-base font-bold">
+                    {editingId
+                      ? `Editar ${definition.singular}`
+                      : `Cadastrar ${definition.singular}`}
+                  </h2>
                 </div>
-                {editingId && <button type="button" onClick={resetForm} className="text-xs font-semibold text-white/40 hover:text-white">Cancelar edição</button>}
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="text-xs font-semibold text-white/40 hover:text-white"
+                  >
+                    Cancelar edição
+                  </button>
+                )}
               </div>
 
               <form onSubmit={handleSave} className="mt-5 space-y-4">
-                {formError && <p role="alert" className="rounded-xl border border-[#E10613]/30 bg-[#E10613]/10 p-3 text-xs leading-relaxed text-[#FCA5A5]">{formError}</p>}
+                {formError && (
+                  <p
+                    role="alert"
+                    className="rounded-xl border border-[#E10613]/30 bg-[#E10613]/10 p-3 text-xs leading-relaxed text-[#FCA5A5]"
+                  >
+                    {formError}
+                  </p>
+                )}
                 <div>
-                  <label htmlFor="catalog-name" className="mb-1.5 block text-xs font-semibold text-white/70">Nome <span className="text-[#FCA5A5]">*</span></label>
-                  <input id="catalog-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required minLength={1} maxLength={160} autoComplete="off" className="h-10 w-full rounded-xl border border-white/10 bg-[#08080B] px-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-[#E10613]" />
+                  <label
+                    htmlFor="catalog-name"
+                    className="mb-1.5 block text-xs font-semibold text-white/70"
+                  >
+                    Nome <span className="text-[#FCA5A5]">*</span>
+                  </label>
+                  <input
+                    id="catalog-name"
+                    value={form.name}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    required
+                    minLength={1}
+                    maxLength={160}
+                    autoComplete="off"
+                    className="h-10 w-full rounded-xl border border-white/10 bg-[#08080B] px-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-[#E10613]"
+                  />
                 </div>
 
                 {extraFields.map((field) => {
-                  const options = field === 'direction'
-                    ? (['income', 'expense'] as const)
-                    : field === 'entity'
-                      ? (['pf', 'pj', 'both'] as const)
-                      : field === 'account_type'
-                        ? (['cash', 'bank', 'credit_card', 'other'] as const)
-                        : null
+                  const options =
+                    field === 'direction'
+                      ? (['income', 'expense'] as const)
+                      : field === 'entity'
+                        ? (['pf', 'pj', 'both'] as const)
+                        : field === 'account_type'
+                          ? (['cash', 'bank', 'credit_card', 'other'] as const)
+                          : null
                   if (field === 'crm') {
-                    return <div key={field}><label htmlFor="catalog-crm" className="mb-1.5 block text-xs font-semibold text-white/70">{fieldLabel(definition.type, field)}</label><input id="catalog-crm" value={form.crm || ''} onChange={(event) => setForm((current) => ({ ...current, crm: event.target.value }))} maxLength={40} autoComplete="off" className="h-10 w-full rounded-xl border border-white/10 bg-[#08080B] px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#E10613]" /></div>
+                    return (
+                      <div key={field}>
+                        <label
+                          htmlFor="catalog-crm"
+                          className="mb-1.5 block text-xs font-semibold text-white/70"
+                        >
+                          {fieldLabel(definition.type, field)}
+                        </label>
+                        <input
+                          id="catalog-crm"
+                          value={form.crm || ''}
+                          onChange={(event) =>
+                            setForm((current) => ({ ...current, crm: event.target.value }))
+                          }
+                          maxLength={40}
+                          autoComplete="off"
+                          className="h-10 w-full rounded-xl border border-white/10 bg-[#08080B] px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#E10613]"
+                        />
+                      </div>
+                    )
                   }
                   if (!options) return null
-                  const value = field === 'direction' ? form.direction : field === 'entity' ? form.entity : form.account_type
+                  const value =
+                    field === 'direction'
+                      ? form.direction
+                      : field === 'entity'
+                        ? form.entity
+                        : form.account_type
                   return (
                     <div key={field}>
-                      <label htmlFor={`catalog-${field}`} className="mb-1.5 block text-xs font-semibold text-white/70">{fieldLabel(definition.type, field)} <span className="text-[#FCA5A5]">*</span></label>
+                      <label
+                        htmlFor={`catalog-${field}`}
+                        className="mb-1.5 block text-xs font-semibold text-white/70"
+                      >
+                        {fieldLabel(definition.type, field)}{' '}
+                        <span className="text-[#FCA5A5]">*</span>
+                      </label>
                       <div className="relative">
-                        <select id={`catalog-${field}`} value={value} required onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#08080B] px-3 pr-9 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#E10613]">
-                          {options.map((option) => <option key={option} value={option}>{optionLabel(option)}</option>)}
+                        <select
+                          id={`catalog-${field}`}
+                          value={value}
+                          required
+                          onChange={(event) =>
+                            setForm((current) => ({ ...current, [field]: event.target.value }))
+                          }
+                          className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#08080B] px-3 pr-9 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#E10613]"
+                        >
+                          {options.map((option) => (
+                            <option key={option} value={option}>
+                              {optionLabel(option)}
+                            </option>
+                          ))}
                         </select>
                         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
                       </div>
@@ -393,18 +506,52 @@ export default function FinancialCatalogsPage() {
                 })}
 
                 <div>
-                  <label htmlFor="catalog-description" className="mb-1.5 block text-xs font-semibold text-white/70">Descrição (opcional)</label>
-                  <textarea id="catalog-description" value={form.description || ''} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} maxLength={300} rows={3} className="w-full resize-y rounded-xl border border-white/10 bg-[#08080B] px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-[#E10613]" />
+                  <label
+                    htmlFor="catalog-description"
+                    className="mb-1.5 block text-xs font-semibold text-white/70"
+                  >
+                    Descrição (opcional)
+                  </label>
+                  <textarea
+                    id="catalog-description"
+                    value={form.description || ''}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, description: event.target.value }))
+                    }
+                    maxLength={300}
+                    rows={3}
+                    className="w-full resize-y rounded-xl border border-white/10 bg-[#08080B] px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-[#E10613]"
+                  />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <button type="submit" disabled={saving} className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#E10613] px-4 text-sm font-bold text-white transition hover:bg-[#C00510] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#E10613]">
-                    {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#E10613] px-4 text-sm font-bold text-white transition hover:bg-[#C00510] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#E10613]"
+                  >
+                    {saving ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
                     {saving ? 'Salvando…' : editingId ? 'Salvar alterações' : 'Salvar cadastro'}
                   </button>
-                  {editingId && <button type="button" onClick={resetForm} disabled={saving} className="h-10 rounded-xl border border-white/10 px-3 text-xs font-semibold text-white/65 hover:bg-white/[0.05] disabled:opacity-50">Cancelar</button>}
+                  {editingId && (
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      disabled={saving}
+                      className="h-10 rounded-xl border border-white/10 px-3 text-xs font-semibold text-white/65 hover:bg-white/[0.05] disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                  )}
                 </div>
-                <p className="text-[10px] leading-relaxed text-white/30">Cadastros usados em lançamentos são gerenciados no próximo passo; nesta entrega não há exclusão nem inativação.</p>
+                <p className="text-[10px] leading-relaxed text-white/30">
+                  Cadastros usados em lançamentos são gerenciados no próximo passo; nesta entrega
+                  não há exclusão nem inativação.
+                </p>
               </form>
             </section>
           )}

@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { calculateDRE } from './dreMapper'
-import { CATEGORIES_PJ, SERVICES_PJ } from '@/constants/categories'
+import { CATEGORIES_PJ } from '@/constants/categories'
 import type { Transaction } from './transactions'
+import type { ServiceEntry } from './serviceEntries'
 
-describe('DRE Mapper com Novas Categorias PJ de Fluxo de Caixa', () => {
-  it('apenas processa transações de Pessoa Jurídica (PJ) e ignora PF rigorosamente', () => {
+describe('DRE Mapper com Regra de Ouro (Receitas de Lançamentos de Serviços + Despesas do Fluxo de Caixa)', () => {
+  it('apenas processa despesas da PJ do fluxo de caixa e calcula receitas SOMENTE de serviceEntries', () => {
     const transactions: Transaction[] = [
+      // Entrada no fluxo de caixa (DEVE SER IGNORADA NA DRE para evitar dupla contagem)
       {
         id: '1',
         type: 'income',
@@ -14,11 +16,12 @@ describe('DRE Mapper com Novas Categorias PJ de Fluxo de Caixa', () => {
         date: '2026-04-10',
         entity: 'pj',
         servico: 'CONSULTORIO',
-        description: 'Consulta Dr. Edson',
+        description: 'Entrada bancária',
         user: 'user1',
         created: '2026-04-10',
         updated: '2026-04-10',
       },
+      // Entrada PF (deve ser ignorada)
       {
         id: '2',
         type: 'income',
@@ -31,6 +34,7 @@ describe('DRE Mapper com Novas Categorias PJ de Fluxo de Caixa', () => {
         created: '2026-04-10',
         updated: '2026-04-10',
       },
+      // Despesa PF (deve ser ignorada)
       {
         id: '3',
         type: 'expense',
@@ -43,37 +47,70 @@ describe('DRE Mapper com Novas Categorias PJ de Fluxo de Caixa', () => {
         created: '2026-04-10',
         updated: '2026-04-10',
       },
+      // Despesa PJ (DEVE ENTRAR)
+      {
+        id: '4',
+        type: 'expense',
+        amount: 300,
+        category: 'SALARIOS',
+        date: '2026-04-10',
+        entity: 'pj',
+        servico: 'CONSULTORIO',
+        description: 'Salário secretária',
+        user: 'user1',
+        created: '2026-04-10',
+        updated: '2026-04-10',
+      },
     ]
 
-    const result = calculateDRE(transactions, { mode: 'month', monthKey: '2026-04' })
-    expect(result.totalTransactionsPJ).toBe(1)
-    expect(result.receitaBruta).toBe(1000)
-    expect(result.receitaBrutaByService['CONSULTORIO']).toBe(1000)
-    expect(result.lucroLiquido).toBe(1000)
+    const serviceEntries: ServiceEntry[] = [
+      {
+        id: 'se-1',
+        user: 'user1',
+        date: '2026-04-10',
+        servico: 'CONSULTORIO',
+        payment_method: 'PIX',
+        amount: 1500,
+        notes: 'Consulta paciente A',
+        created: '2026-04-10',
+        updated: '2026-04-10',
+      },
+    ]
+
+    const result = calculateDRE(
+      transactions,
+      { mode: 'month', monthKey: '2026-04' },
+      [],
+      serviceEntries,
+    )
+    expect(result.totalTransactionsPJ).toBe(1) // 1 despesa PJ
+    expect(result.totalServiceEntries).toBe(1)
+    expect(result.receitaBruta).toBe(1500)
+    expect(result.receitaBrutaByService['CONSULTORIO']).toBe(1500)
+    expect(result.despesasOperacionais).toBe(300)
+    expect(result.lucroLiquido).toBe(1200)
   })
 
-  it('remapeia corretamente as 8 receitas de fluxo de caixa como Receita Bruta', () => {
-    const incomeTxs: Transaction[] = CATEGORIES_PJ.income.map((cat, idx) => ({
-      id: `inc-${idx}`,
-      type: 'income',
-      amount: 100,
-      category: cat,
-      date: '2026-05-15',
-      entity: 'pj',
-      servico: 'CENTRO CIRURGICO',
-      description: `Entrada ${cat}`,
+  it('mapeia corretamente as 8 formas de pagamento de receitas dos lançamentos de serviços', () => {
+    const serviceEntries: ServiceEntry[] = CATEGORIES_PJ.income.map((method, idx) => ({
+      id: `se-${idx}`,
       user: 'u1',
+      date: '2026-05-15',
+      servico: 'CENTRO CIRURGICO',
+      payment_method: method,
+      amount: 100,
+      notes: `Atendimento ${method}`,
       created: '2026-05-15',
       updated: '2026-05-15',
     }))
 
-    const result = calculateDRE(incomeTxs, { mode: 'month', monthKey: '2026-05' })
+    const result = calculateDRE([], { mode: 'month', monthKey: '2026-05' }, [], serviceEntries)
     expect(result.receitaBruta).toBe(800)
     expect(result.receitaBrutaRows.length).toBe(8)
     expect(result.receitaBrutaByService['CENTRO CIRURGICO']).toBe(800)
   })
 
-  it('remapeia todas as 30 despesas PJ nas seções contábeis corretas sem faltar nenhuma', () => {
+  it('remapeia todas as 30 despesas PJ nas seções contábeis corretas a partir do fluxo de caixa', () => {
     const expenseTxs: Transaction[] = CATEGORIES_PJ.expense.map((cat, idx) => ({
       id: `exp-${idx}`,
       type: 'expense',
@@ -88,7 +125,7 @@ describe('DRE Mapper com Novas Categorias PJ de Fluxo de Caixa', () => {
       updated: '2026-06-01',
     }))
 
-    const result = calculateDRE(expenseTxs, { mode: 'month', monthKey: '2026-06' })
+    const result = calculateDRE(expenseTxs, { mode: 'month', monthKey: '2026-06' }, [], [])
 
     // 7 custos diretos * 10 = 70
     expect(result.custosServicos).toBe(70)
@@ -109,63 +146,26 @@ describe('DRE Mapper com Novas Categorias PJ de Fluxo de Caixa', () => {
     expect(result.investimentos).toBe(10)
     expect(result.investimentosRows.length).toBe(1)
 
-    // Total de despesas: 70 + 150 + 40 + 30 + 10 = 300
     // Lucro Líquido = 0 - 300 = -300
     expect(result.lucroLiquido).toBe(-300)
   })
 
-  it('não perde lançamentos com categorias antigas ou não mapeadas e aloca em outras despesas', () => {
-    const transactions: Transaction[] = [
+  it('calcula o resumo de serviços combinando receitas de serviceEntries e despesas do fluxo de caixa', () => {
+    const serviceEntries: ServiceEntry[] = [
       {
-        id: 'old-1',
-        type: 'expense',
-        amount: 250,
-        category: 'Categoria Antiga Desconhecida',
-        date: '2026-07-10',
-        entity: 'pj',
-        servico: 'CLINICA GERAL',
-        description: 'Gasto histórico',
+        id: 'se-1',
         user: 'u1',
-        created: '2026-07-10',
-        updated: '2026-07-10',
-      },
-      {
-        id: 'inc-1',
-        type: 'income',
-        amount: 1000,
-        category: 'PIX',
-        date: '2026-07-10',
-        entity: 'pj',
-        servico: 'CLINICA GERAL',
-        description: 'Recebimento',
-        user: 'u1',
-        created: '2026-07-10',
-        updated: '2026-07-10',
-      },
-    ]
-
-    const result = calculateDRE(transactions, { mode: 'month', monthKey: '2026-07' })
-    expect(result.receitaBruta).toBe(1000)
-    expect(result.despesasOperacionais).toBe(250)
-    expect(result.outrasNaoMapeadasTotal).toBe(250)
-    expect(result.lucroLiquido).toBe(750)
-  })
-
-  it('calcula o resumo de serviços corretamente para os 6 serviços oficiais', () => {
-    const transactions: Transaction[] = [
-      {
-        id: 'tx-1',
-        type: 'income',
-        amount: 2000,
-        category: 'PIX',
         date: '2026-08-01',
-        entity: 'pj',
         servico: 'CENTRO CIRURGICO',
-        description: '',
-        user: 'u1',
+        payment_method: 'PIX',
+        amount: 2000,
+        notes: '',
         created: '2026-08-01',
         updated: '2026-08-01',
       },
+    ]
+
+    const transactions: Transaction[] = [
       {
         id: 'tx-2',
         type: 'expense',
@@ -181,7 +181,12 @@ describe('DRE Mapper com Novas Categorias PJ de Fluxo de Caixa', () => {
       },
     ]
 
-    const result = calculateDRE(transactions, { mode: 'month', monthKey: '2026-08' })
+    const result = calculateDRE(
+      transactions,
+      { mode: 'month', monthKey: '2026-08' },
+      [],
+      serviceEntries,
+    )
     const cc = result.serviceSummaries.find((s) => s.serviceName === 'CENTRO CIRURGICO')
     expect(cc).toBeDefined()
     expect(cc?.receita).toBe(2000)

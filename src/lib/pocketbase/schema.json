@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T22:05:57.384Z",
+  "generatedAt": "2026-10-15T11:53:26.209Z",
   "collections": [
     {
       "name": "users",
@@ -29,21 +29,30 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "role",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["direcao", "gestao_financeira", "recepcao"]
+          "selectValues": [
+            "direcao",
+            "gestao_financeira",
+            "recepcao"
+          ]
         }
       ],
       "indexes": [
@@ -74,7 +83,10 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["income", "expense"]
+          "selectValues": [
+            "income",
+            "expense"
+          ]
         },
         {
           "name": "amount",
@@ -105,21 +117,29 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "entity",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["pf", "pj"]
+          "selectValues": [
+            "pf",
+            "pj"
+          ]
         },
         {
           "name": "servico",
@@ -131,6 +151,457 @@
       "indexes": [
         "CREATE INDEX idx_transactions_user_date ON transactions (user, date DESC)",
         "CREATE INDEX idx_transactions_type ON transactions (type)"
+      ]
+    },
+    {
+      "name": "service_entries",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "servico",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "CENTRO CIRURGICO",
+            "CIRURGIAS EXTERNAS",
+            "LABORATORIO",
+            "LITOTRIPSIA",
+            "CONSULTORIO",
+            "CLINICA GERAL"
+          ]
+        },
+        {
+          "name": "payment_method",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "CARTAO DE DEBITO",
+            "CARTAO DE CREDITO",
+            "ANTECIPACAO DE CARTAO DE CREDITO",
+            "PIX",
+            "DINHEIRO",
+            "CHEQUE",
+            "ALUGUEL DE SALAS",
+            "TED"
+          ]
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_service_entries_date ON service_entries (date DESC)",
+        "CREATE INDEX idx_service_entries_servico ON service_entries (servico)",
+        "CREATE INDEX idx_service_entries_payment_method ON service_entries (payment_method)"
+      ]
+    },
+    {
+      "name": "financial_accounts",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = \"direcao\" || @request.auth.role = \"gestao_financeira\")",
+        "view": "@request.auth.id != '' && (@request.auth.role = \"direcao\" || @request.auth.role = \"gestao_financeira\")",
+        "create": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && @request.body.active = true",
+        "update": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && active = true && @request.body.active = true",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "account_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "cash",
+            "bank",
+            "credit_card",
+            "other"
+          ]
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_financial_accounts_name_active ON financial_accounts (name COLLATE NOCASE) WHERE active = 1"
+      ]
+    },
+    {
+      "name": "financial_categories",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && @request.body.active = true",
+        "update": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && active = true && @request.body.active = true",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "direction",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "income",
+            "expense"
+          ]
+        },
+        {
+          "name": "entity",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "pf",
+            "pj",
+            "both"
+          ]
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_financial_categories_name_active ON financial_categories (name COLLATE NOCASE) WHERE active = 1",
+        "CREATE INDEX idx_financial_categories_direction ON financial_categories (direction)"
+      ]
+    },
+    {
+      "name": "financial_payment_methods",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && @request.body.active = true",
+        "update": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && active = true && @request.body.active = true",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_financial_payment_methods_name_active ON financial_payment_methods (name COLLATE NOCASE) WHERE active = 1"
+      ]
+    },
+    {
+      "name": "financial_doctors",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = \"direcao\" || @request.auth.role = \"gestao_financeira\")",
+        "view": "@request.auth.id != '' && (@request.auth.role = \"direcao\" || @request.auth.role = \"gestao_financeira\")",
+        "create": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && @request.body.active = true",
+        "update": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && active = true && @request.body.active = true",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "crm",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_financial_doctors_name_active ON financial_doctors (name COLLATE NOCASE) WHERE active = 1",
+        "CREATE INDEX idx_financial_doctors_crm ON financial_doctors (crm)"
+      ]
+    },
+    {
+      "name": "financial_insurers",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = \"direcao\" || @request.auth.role = \"gestao_financeira\")",
+        "view": "@request.auth.id != '' && (@request.auth.role = \"direcao\" || @request.auth.role = \"gestao_financeira\")",
+        "create": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && @request.body.active = true",
+        "update": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && active = true && @request.body.active = true",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_financial_insurers_name_active ON financial_insurers (name COLLATE NOCASE) WHERE active = 1"
+      ]
+    },
+    {
+      "name": "financial_cost_centers",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && @request.body.active = true",
+        "update": "@request.auth.id != '' && @request.auth.role = \"gestao_financeira\" && active = true && @request.body.active = true",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_financial_cost_centers_name_active ON financial_cost_centers (name COLLATE NOCASE) WHERE active = 1"
       ]
     }
   ]

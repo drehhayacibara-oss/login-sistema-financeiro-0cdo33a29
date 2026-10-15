@@ -203,10 +203,15 @@ async function ensureNoActiveDuplicate(
   const normalizedName = name.toLocaleLowerCase('pt-BR')
   const duplicate = records.items.find(
     (record) =>
-      record.id !== excludeId && String(record.name || '').trim().toLocaleLowerCase('pt-BR') === normalizedName,
+      record.id !== excludeId &&
+      String(record.name || '')
+        .trim()
+        .toLocaleLowerCase('pt-BR') === normalizedName,
   )
   if (duplicate) {
-    throw new Error(`Já existe um cadastro ativo chamado “${String(duplicate.name)}” em ${definition.label.toLocaleLowerCase('pt-BR')}. Edite o registro existente.`)
+    throw new Error(
+      `Já existe um cadastro ativo chamado “${String(duplicate.name)}” em ${definition.label.toLocaleLowerCase('pt-BR')}. Edite o registro existente.`,
+    )
   }
 }
 
@@ -215,7 +220,8 @@ export async function createCatalogRecord(
   input: FinancialCatalogInput,
 ): Promise<FinancialCatalogRecord> {
   const role = (pb.authStore.record as Record<string, unknown> | null)?.role
-  if (role !== 'gestao_financeira') throw new Error('Somente a Gestão Financeira pode criar cadastros.')
+  if (role !== 'gestao_financeira')
+    throw new Error('Somente a Gestão Financeira pode criar cadastros.')
   const data = normalizeInput(type, input)
   await ensureNoActiveDuplicate(type, String(data.name))
   const definition = getCatalogDefinition(type)
@@ -240,7 +246,8 @@ export async function updateCatalogRecord(
   input: FinancialCatalogInput,
 ): Promise<FinancialCatalogRecord> {
   const role = (pb.authStore.record as Record<string, unknown> | null)?.role
-  if (role !== 'gestao_financeira') throw new Error('Somente a Gestão Financeira pode editar cadastros.')
+  if (role !== 'gestao_financeira')
+    throw new Error('Somente a Gestão Financeira pode editar cadastros.')
   if (!id.trim()) throw new Error('Cadastro inválido para edição.')
   const data = normalizeInput(type, input)
   await ensureNoActiveDuplicate(type, String(data.name), id)

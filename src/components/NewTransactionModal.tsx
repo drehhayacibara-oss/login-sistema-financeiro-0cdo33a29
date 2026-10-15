@@ -34,10 +34,7 @@ interface NewTransactionModalProps {
 
 import { CATEGORIES_PF, CATEGORIES_PJ, SERVICES_PJ } from '@/constants/categories'
 import { Briefcase } from 'lucide-react'
-import {
-  listCatalogRecords,
-  type FinancialCatalogRecord,
-} from '@/services/financialCatalogs'
+import { listCatalogRecords, type FinancialCatalogRecord } from '@/services/financialCatalogs'
 
 export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   open,
@@ -73,18 +70,19 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   React.useEffect(() => {
     if (!open) return
     let mounted = true
-    Promise.allSettled([
-      listCatalogRecords('categories'),
-      listCatalogRecords('cost_centers'),
-    ]).then((results) => {
-      if (!mounted) return
-      const values = results.map((result) => result.status === 'fulfilled' ? result.value : [])
-      setCatalogs({
-        categories: values[0],
-        costCenters: values[1],
-      })
-    })
-    return () => { mounted = false }
+    Promise.allSettled([listCatalogRecords('categories'), listCatalogRecords('cost_centers')]).then(
+      (results) => {
+        if (!mounted) return
+        const values = results.map((result) => (result.status === 'fulfilled' ? result.value : []))
+        setCatalogs({
+          categories: values[0],
+          costCenters: values[1],
+        })
+      },
+    )
+    return () => {
+      mounted = false
+    }
   }, [open])
 
   const resetForm = () => {
@@ -344,19 +342,19 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               </span>
               <div className="max-h-40 overflow-y-auto pr-1 flex flex-wrap gap-1.5 custom-scrollbar">
                 {availableCategories.map((cat) => (
-  <button
-    key={cat}
-    type="button"
-    onClick={() => setCategory(cat)}
-    className={`rounded-lg border px-2.5 py-1 text-[11px] transition-colors text-left ${
-      category === cat
-        ? 'border-[#E10613]/60 bg-[#E10613]/25 font-bold text-white shadow-[0_0_10px_rgba(225,6,19,0.2)]'
-        : 'border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.08] hover:text-white hover:border-white/20'
-    }`}
-  >
-    {cat}
-  </button>
-))}
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategory(cat)}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] transition-colors text-left ${
+                      category === cat
+                        ? 'border-[#E10613]/60 bg-[#E10613]/25 font-bold text-white shadow-[0_0_10px_rgba(225,6,19,0.2)]'
+                        : 'border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.08] hover:text-white hover:border-white/20'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -426,8 +424,6 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               </div>
             </div>
           )}
-
-
 
           {/* Data */}
           <div>

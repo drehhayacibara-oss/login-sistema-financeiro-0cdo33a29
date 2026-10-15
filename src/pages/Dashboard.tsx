@@ -6,12 +6,14 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
+  Briefcase,
   Building2,
   CalendarDays,
   CreditCard,
   Filter,
   ClipboardList,
   LayoutDashboard,
+  Scale,
   ListChecks,
   LogOut,
   Menu,
@@ -57,6 +59,8 @@ type SidebarProps = {
   onImportStatement: () => void
   onNavigateDRE: () => void
   onNavigateCatalogs: () => void
+  onNavigateServices?: () => void
+  onNavigateReconciliation?: () => void
 }
 
 type NavigationItem = {
@@ -66,6 +70,7 @@ type NavigationItem = {
   active?: boolean
   badge?: string
   route?: string
+  pjOnly?: boolean
 }
 
 const navigationByRole: Record<UserRole, NavigationItem[]> = {
@@ -77,16 +82,31 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       active: true,
     },
     {
-      label: 'Cadastros financeiros',
-      description: 'Consulta de cadastros',
-      icon: ClipboardList,
-      route: '/cadastros',
+      label: 'Lançamentos de Serviços',
+      description: 'Receita na fonte por serviço',
+      icon: Briefcase,
+      route: '/servicos',
+      pjOnly: true,
+    },
+    {
+      label: 'Conferência de caixa',
+      description: 'Serviços vs. Banco',
+      icon: Scale,
+      route: '/conferencia',
+      pjOnly: true,
     },
     {
       label: 'Relatório DRE',
       description: 'Resultado PJ & Serviços',
       icon: BarChart3,
       route: '/dre',
+      pjOnly: true,
+    },
+    {
+      label: 'Cadastros financeiros',
+      description: 'Consulta de cadastros',
+      icon: ClipboardList,
+      route: '/cadastros',
     },
     {
       label: 'Movimentações',
@@ -108,16 +128,31 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       active: true,
     },
     {
-      label: 'Cadastros financeiros',
-      description: 'Criar, editar e consultar opções',
-      icon: ClipboardList,
-      route: '/cadastros',
+      label: 'Lançamentos de Serviços',
+      description: 'Receita na fonte por serviço',
+      icon: Briefcase,
+      route: '/servicos',
+      pjOnly: true,
+    },
+    {
+      label: 'Conferência de caixa',
+      description: 'Serviços vs. Banco',
+      icon: Scale,
+      route: '/conferencia',
+      pjOnly: true,
     },
     {
       label: 'Relatório DRE',
       description: 'Resultado PJ & Serviços',
       icon: BarChart3,
       route: '/dre',
+      pjOnly: true,
+    },
+    {
+      label: 'Cadastros financeiros',
+      description: 'Criar, editar e consultar opções',
+      icon: ClipboardList,
+      route: '/cadastros',
     },
     {
       label: 'Movimentações',
@@ -139,16 +174,31 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
       active: true,
     },
     {
-      label: 'Cadastros do caixa',
-      description: 'Consultar categorias e formas',
-      icon: ClipboardList,
-      route: '/cadastros',
+      label: 'Lançamentos de Serviços',
+      description: 'Lançar atendimentos PJ',
+      icon: Briefcase,
+      route: '/servicos',
+      pjOnly: true,
+    },
+    {
+      label: 'Conferência de caixa',
+      description: 'Conferir entradas do dia',
+      icon: Scale,
+      route: '/conferencia',
+      pjOnly: true,
     },
     {
       label: 'Relatório DRE',
       description: 'Demonstrativo PJ',
       icon: BarChart3,
       route: '/dre',
+      pjOnly: true,
+    },
+    {
+      label: 'Cadastros do caixa',
+      description: 'Consultar categorias e formas',
+      icon: ClipboardList,
+      route: '/cadastros',
     },
     {
       label: 'Movimentações',
@@ -179,6 +229,8 @@ function Sidebar({
   onImportStatement,
   onNavigateDRE,
   onNavigateCatalogs,
+  onNavigateServices,
+  onNavigateReconciliation,
 }: SidebarProps) {
   return (
     <aside
@@ -251,6 +303,12 @@ function Sidebar({
               if (mobile && onClose) onClose()
               if (item.route === '/dre') {
                 onNavigateDRE()
+              } else if (item.route === '/servicos') {
+                if (onNavigateServices) onNavigateServices()
+                else navigate('/servicos')
+              } else if (item.route === '/conferencia') {
+                if (onNavigateReconciliation) onNavigateReconciliation()
+                else navigate('/conferencia')
               } else if (item.route === '/cadastros') {
                 onNavigateCatalogs()
               } else if (item.active) {
@@ -269,33 +327,29 @@ function Sidebar({
                 className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all ${
                   item.active
                     ? 'bg-[#E10613]/10 text-white shadow-[inset_3px_0_0_#E10613]'
-                    : item.route === '/dre'
+                    : item.route
                       ? 'text-white/80 hover:bg-white/[0.06] hover:text-white'
                       : 'text-white/50 hover:bg-white/[0.04] hover:text-white'
                 }`}
               >
                 <Icon
                   className={`h-[18px] w-[18px] shrink-0 ${
-                    item.active
-                      ? 'text-[#E10613]'
-                      : item.route === '/dre'
-                        ? 'text-[#E10613]'
-                        : 'text-white/35'
+                    item.active ? 'text-[#E10613]' : item.route ? 'text-[#E10613]' : 'text-white/35'
                   }`}
                 />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-sm font-semibold">
                     {item.label}
-                    {item.route === '/dre' && (
+                    {item.pjOnly && (
                       <span className="rounded-md border border-[#E10613]/40 bg-[#E10613]/15 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-[#FCA5A5]">
                         PJ
                       </span>
                     )}
                   </span>
-                  <span className="mt-0.5 block truncate text-[11px] text-white/35">
+                  <span className="mt-0.5 block truncate text-[11px] text-white/40">
                     {item.description}
                   </span>
-                </span>
+                </span>{' '}
                 {!item.active && item.badge && (
                   <span className="rounded-full border border-white/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white/30">
                     {item.badge}
@@ -568,6 +622,8 @@ export default function Dashboard() {
             onImportStatement={() => setIsImportModalOpen(true)}
             onNavigateDRE={() => navigate('/dre')}
             onNavigateCatalogs={() => navigate('/cadastros')}
+            onNavigateServices={() => navigate('/servicos')}
+            onNavigateReconciliation={() => navigate('/conferencia')}
           />
         </>
       )}
@@ -596,6 +652,8 @@ export default function Dashboard() {
           onImportStatement={() => setIsImportModalOpen(true)}
           onNavigateDRE={() => navigate('/dre')}
           onNavigateCatalogs={() => navigate('/cadastros')}
+          onNavigateServices={() => navigate('/servicos')}
+          onNavigateReconciliation={() => navigate('/conferencia')}
         />
 
         <div className="min-w-0 flex-1">
