@@ -152,7 +152,6 @@ export default function DREPage() {
   const [serviceEntries, setServiceEntries] = useState<ServiceEntry[]>([])
   const [costCenters, setCostCenters] = useState<string[]>([...SERVICES_PJ])
   const [loadingData, setLoadingData] = useState(true)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isNewTxModalOpen, setIsNewTxModalOpen] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
 

@@ -305,10 +305,8 @@ function Sidebar({
                 onNavigateDRE()
               } else if (item.route === '/servicos') {
                 if (onNavigateServices) onNavigateServices()
-                else navigate('/servicos')
               } else if (item.route === '/conferencia') {
                 if (onNavigateReconciliation) onNavigateReconciliation()
-                else navigate('/conferencia')
               } else if (item.route === '/cadastros') {
                 onNavigateCatalogs()
               } else if (item.active) {

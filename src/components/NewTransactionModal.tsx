@@ -19,6 +19,7 @@ import {
   Tag,
   Type,
   User,
+  Building2,
 } from 'lucide-react'
 import type {
   CreateTransactionDTO,
